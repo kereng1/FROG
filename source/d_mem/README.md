@@ -26,5 +26,5 @@ The module communicates using standard signals: adrs provides the full address, 
 
 4. Running Commands
 
-vlog +incdir+source/common source/d_mem/d_mem_Word_Aligned_Block_RAM2.sv verif/d_mem_tb.sv
+vlog +incdir+source/common source/d_mem/d_mem_Word_Aligned_Block_RAM.sv verif/d_mem_tb.sv
 vsim work.mem_tb
