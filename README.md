@@ -6,6 +6,12 @@ This repository contains our final-year Electrical Engineering project, where we
 ### Project Overview
 The goal of the project is to build a complete working system based on a RISC-V pipelined CPU, capable of executing user-provided software and interacting with external peripherals through FPGA hardware interfaces.
 
+
+
+### Start commands
+FIXME - add command to compile simulate and debug components
+
+
 ### Project Stages
 #### 1️⃣ RISC-V Pipelined CPU Design
 

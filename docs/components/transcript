@@ -1,7 +1,0 @@
-# vsim alu_tb 
-# Start time: 12:21:30 on Nov 23,2025
-# ** Error (suppressible): (vsim-19) Failed to access library 'work' at "work".
-# No such file or directory. (errno = ENOENT)
-# Error loading design
-# End time: 12:21:31 on Nov 23,2025, Elapsed time: 0:00:01
-# Errors: 1, Warnings: 0
