@@ -3,6 +3,8 @@ work/
 
 #Simulation files
 *.vcd
+*.log
+
 
 # built directory
 target/

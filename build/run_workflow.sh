@@ -5,8 +5,9 @@
 cd "$(dirname "$0")/.."
 PROJECT_ROOT=$(pwd)
 
-# Create log directory
+# Create target directories
 mkdir -p target/logs
+mkdir -p target/work
 
 # Create timestamp and logfile
 TIMESTAMP=$(date "+%Y%m%d_%H%M%S")
@@ -15,6 +16,9 @@ LOG_FILE="$PROJECT_ROOT/target/logs/alu_build_$TIMESTAMP.log"
 # Configuration
 TB_NAME="alu_tb"
 TB_LIST="verif/alu/alu_list.f"
+WORK_DIR="$PROJECT_ROOT/target/work"
+TRANSCRIPT="$PROJECT_ROOT/target/transcript"
+WLF_FILE="$PROJECT_ROOT/target/vsim.wlf"
 
 # Function to log and display
 log_and_display() {
@@ -31,7 +35,7 @@ compile() {
     log_and_display ""
     
     log_and_display "[1/2] Compiling ALU sources with vlog..."
-    vlog -sv -f "$TB_LIST" >> "$LOG_FILE" 2>&1
+    vlog -sv -work "$WORK_DIR" -f "$TB_LIST" >> "$LOG_FILE" 2>&1
     
     if [ $? -ne 0 ]; then
         log_and_display "❌ Compilation FAILED"
@@ -50,7 +54,7 @@ run_cli() {
     compile
     
     log_and_display "[2/2] Running ALU testbench with vsim (CLI mode)..."
-    vsim -c "$TB_NAME" -do "run -all; quit -f" >> "$LOG_FILE" 2>&1
+    vsim -c -work "$WORK_DIR" -l "$TRANSCRIPT" -wlf "$WLF_FILE" "$TB_NAME" -do "run -all; quit -f" >> "$LOG_FILE" 2>&1
     
     if [ $? -ne 0 ]; then
         log_and_display "❌ Simulation FAILED"
@@ -75,7 +79,7 @@ run_gui() {
     log_and_display ""
 
     # Run GUI mode, capture output to logfile
-    vsim "$TB_NAME" -do "add wave *; run -all; quit -f" >> "$LOG_FILE" 2>&1 &
+    vsim -work "$WORK_DIR" -l "$TRANSCRIPT" -wlf "$WLF_FILE" "$TB_NAME" -do "add wave *; run -all; quit -f" >> "$LOG_FILE" 2>&1 &
 
     # Allow GUI to start properly
     sleep 1
@@ -89,10 +93,15 @@ run_gui() {
 # -----------------------------------------------------------
 clean() {
     log_and_display "Cleaning generated files..."
+    # Clean old files in project root (for backward compatibility)
     rm -rf work/
     rm -f transcript vsim.wlf
     rm -f *.vcd
-    rm -rf target/
+    # Clean all target directory contents (work library, transcript, waveform files, etc.)
+    rm -rf target/work
+    rm -f target/transcript target/vsim.wlf target/*.wlf
+    rm -f target/*.vcd
+    # Note: Logs in target/logs are preserved. To remove everything including logs, delete target/ manually
     log_and_display "✔ Clean complete!"
 }
 
