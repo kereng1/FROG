@@ -1,11 +1,11 @@
-# This It tells your simulator (ModelSim / VCS...) which files to compile,
+# This It tells your simulator (ModelSim) which files to compile for rf,
 # and where to look for include directories.
 
 # where to look for "include" directories
 +incdir+source/common
-+incdir+source/alu
++incdir+source/rf
 
 # Source files - this is the list of files to compile
-source/common/pkg.sv
-source/alu/alu.sv
-verif/alu/alu_tb.sv
+source/common/dff_macros.svh
+source/rf/rf.sv
+verif/rf/rf_tb.sv

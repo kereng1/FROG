@@ -1,7 +1,7 @@
 // ALU: Arithmetic/logic unit that can preform(add, sub, shift, etc).
 // 4b op code selects operation (defined in pkg.sv).
 
-`include "macros.svh"    // DFF macros (unused in ALU)
+`include "dff_macros.svh"    // DFF macros (unused in ALU)
 
 import pkg::*;          // Get ALU op codes
 

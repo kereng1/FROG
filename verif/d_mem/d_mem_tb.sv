@@ -1,183 +1,119 @@
-// Testbench for the Word-Aligned Memory Unit (mem.sv)
-// Tests: Byte/Halfword alignment using Shift Before and After logic.
-
 `timescale 1ns/1ps
 
-module mem_tb;
+module d_mem_tb;
 
-    // ----------------------------------------------------
-    // 1. Signals for Interface (DUT - Device Under Test)
-    // ----------------------------------------------------
-    localparam WORD_WIDTH = 32;
-    localparam ADRS_WIDTH = 32;
-    localparam BYTE_EN_SIZE = 4;
+    // -----------------------
+    // Signals
+    // -----------------------
+    logic clk;
+    logic [31:0] addr;
+    logic wr_en;
+    logic [31:0] wr_data;
+    logic [3:0] byte_en;
+    logic [31:0] rd_data;
 
-    logic        clk;
-    logic [ADRS_WIDTH-1:0] adrs;
-    logic [WORD_WIDTH-1:0] rd_data;
-    logic        rden;
-    logic        wren;
-    logic [BYTE_EN_SIZE-1:0] byt_en;
-    logic        sign_ext; // Not critical for alignment test, set to 0
-    logic [WORD_WIDTH-1:0] wr_data;
-
-    // ----------------------------------------------------
-    // 2. Instantiate the Device Under Test (DUT)
-    // ----------------------------------------------------
-    mem #(
-        .WORD_WIDTH(WORD_WIDTH),
-        .ADRS_WIDTH(ADRS_WIDTH),
-        .MEM_DEPTH_WORDS(256)
-    ) dut (
+    // Instantiate DUT
+    d_mem #(.MEM_SIZE_WORDS(16)) dut (
         .clk(clk),
-        .adrs(adrs),
-        .rd_data(rd_data),
-        .rden(rden),
-        .wren(wren),
-        .byt_en(byt_en),
-        .sign_ext(sign_ext),
-        .wr_data(wr_data)
+        .addr(addr),
+        .wr_en(wr_en),
+        .wr_data(wr_data),
+        .byte_en(byte_en),
+        .rd_data(rd_data)
     );
 
-    // ----------------------------------------------------
-    // 3. Clock Generation
-    // ----------------------------------------------------
+    // -----------------------
+    // Clock
+    // -----------------------
+    initial clk = 0;
+    always #5 clk = ~clk; // 10ns period
+
+    // -----------------------
+    // Write helper
+    // -----------------------
+    task write(input int a, input [31:0] data, input [3:0] be);
+        begin
+            @(posedge clk);
+            addr = a;
+            wr_data = data;
+            byte_en = be;
+            wr_en = 1;
+            @(posedge clk);
+            wr_en = 0;
+            $display("[WRITE] addr=%0d byte_en=%b data=0x%b", a, be, data);
+        end
+    endtask
+
+    // -----------------------
+    // Read helper
+    // -----------------------
+    task read(input int a, input [3:0] be);
+        begin
+            @(posedge clk);
+            addr = a;
+            byte_en = be;   // send same mask as write
+            @(posedge clk);
+            $display("[READ ] addr=%0d byte_en=%b --> rd_data=0x%b", a, be, rd_data);
+        end
+    endtask
+
+    // -----------------------
+    // Test sequence
+    // -----------------------
     initial begin
-        clk = 0;
-        forever #5 clk = ~clk; // Clock period is 10ns
-    end
+        wr_en = 0; addr = 0; wr_data = 0; byte_en = 4'b0000;
 
-    // ----------------------------------------------------
-    // 4. Task Definitions
-    // ----------------------------------------------------
+        $display("\n========== START FULL d_mem TB ==========");
 
-    // Reset task
-    task reset_signals;
-        begin
-            rden = 0;
-            wren = 0;
-            adrs = 0;
-            wr_data = 0;
-            byt_en = 0;
-            sign_ext = 0;
-            @(posedge clk);
-            $display("--- Reset Complete ---");
-        end
-    endtask
+        // -----------------------
+        // 1) Full word write at aligned address 0
+        // -----------------------
+        write(0, 32'hDEADBEEF, 4'b1111);
+        read (0, 4'b1111);
 
-    // Store Byte task
-    task store_byte (input logic [ADRS_WIDTH-1:0] s_adrs, input logic [7:0] s_data);
-        begin
-            $display("STORE Byte to address 0x%h. Data: 0x%h. Offset: %d", s_adrs, s_data, s_adrs[1:0]);
-            
-            // Phase 1: Setup
-            adrs = s_adrs;
-            wr_data = {24'h0, s_data}; // Data is placed in the LSB of wr_data
-            
-            // Calculate Byte Enable based on offset (only byt_en[0] is active in the *user's* request)
-            // The shift logic inside the DUT will map it to the correct shifted_byte_en
-            byt_en = 4'b0001; 
-            
-            wren = 1;
-            @(posedge clk);
-            
-            // Phase 2: Completion
-            wren = 0;
-            @(posedge clk);
-        end
-    endtask
+        // -----------------------
+        // 2) Halfword writes
+        // -----------------------
+        // Lower half at aligned addr 4
+        write(4, 32'h00001234, 4'b0011);
+        read(4, 4'b1111);
 
-    // Load Byte task
-    task load_byte (input logic [ADRS_WIDTH-1:0] l_adrs, input logic [7:0] expected_data);
-        begin
-            $display("LOAD Byte from address 0x%h. Offset: %d. Expecting: 0x%h", l_adrs, l_adrs[1:0], expected_data);
-            
-            // Phase 1: Setup read
-            adrs = l_adrs;
-            byt_en = 4'b0001; // The requested size is a Byte
-            rden = 1;
-            #1; // Allow combinational logic to settle
+        // Upper half at aligned addr 4
+        write(4, 32'h56780000, 4'b1100);
+        read(4, 4'b1111);
 
-            // Phase 2: Check result (rd_data is combinational)
-            if (rd_data[7:0] == expected_data) begin
-                $display("LOAD SUCCESS. Received: 0x%h", rd_data[7:0]);
-            end else begin
-                $error("LOAD FAILED! Received: 0x%h, Expected: 0x%h", rd_data[7:0], expected_data);
-            end
+        // -----------------------
+        // 3) Byte writes
+        // -----------------------
+        write(8, 32'h000000AA, 4'b0001);
+        read (8, 4'b1111);
 
-            // Phase 3: Cleanup
-            rden = 0;
-            @(posedge clk);
-        end
-    endtask
+        write(8, 32'h00BB0000, 4'b0100);
+        read (8, 4'b1111);
 
+        // -----------------------
+        // 4) Single byte writes to all bytes sequentially
+        // -----------------------
+        write(12, 32'h11223344, 4'b0001); read(12, 4'b1111);  // byte0
+        write(12, 32'h55667788, 4'b0010); read(12, 4'b1111);  // byte1
+        write(12, 32'h99AABBCC, 4'b0100); read(12, 4'b1111);  // byte2
+        write(12, 32'hDDEEFF00, 4'b1000); read(12, 4'b1111);  // byte3
 
-    // ----------------------------------------------------
-    // 5. Simulation Flow (Main Block)
-    // ----------------------------------------------------
-    initial begin
-        $dumpfile("mem_tb.vcd");
-        $dumpvars(0, mem_tb);
+        // -----------------------
+        // 5) Attempt unaligned writes (should trigger error)
+        // -----------------------
+        write(2, 32'hCAFEBABE, 4'b1111);  // word write unaligned
+        write(3, 32'h12345678, 4'b0011);  // halfword unaligned
 
-        reset_signals;
+        // -----------------------
+        // 6) Mix of writes on same word
+        // -----------------------
+        write(1, 32'hAA000000, 4'b1000); read(1, 4'b1111);
+        write(1, 32'h0000BB00, 4'b0100); read(1, 4'b1111);
+        write(1, 32'h000000CC, 4'b0001); read(1, 4'b1111);
 
-        // --- Test Scenario: Byte Access and Alignment ---
-        
-        // 1. Initial Data (Non-Aliasing Word at base address 0x20)
-        // Set an existing word to 0xFEEDF00D to check if only the requested byte is written.
-        
-        $display("\n--- 1. Pre-filling Memory with known word 0xFEEDF00D @ 0x20 ---");
-        adrs = 32'h00000020;
-        wr_data = 32'hFEEDF00D;
-        byt_en = 4'b1111; // Write full word
-        wren = 1;
-        @(posedge clk);
-        wren = 0;
-        @(posedge clk);
-
-
-        // 2. STORE Byte tests (Shift Left Logic Check)
-        // Store the value 0xAA using different offsets. Only the 8 LSBs of wr_data are relevant.
-        
-        $display("\n--- 2. STORE BYTE TESTS (Shift Left) ---");
-        
-        // Store 0xAA to address 0x20 (Offset 0)
-        store_byte(32'h00000020, 8'hAA); 
-        // Expected memory word @ 0x20: 0xFEEDF0AA (Only the LSB changes)
-
-        // Store 0xBB to address 0x21 (Offset 1)
-        store_byte(32'h00000021, 8'hBB);
-        // Expected memory word @ 0x20: 0xFEEDBB20 (0xBB moves to byte 1, 0xAA moves to byte 0) -> 0xFEEDBB AA
-        // The original word was 0xFEED F0 AA. Writing 0xBB @ 0x21 means: 0xFE ED BB AA
-
-        // Store 0xCC to address 0x22 (Offset 2)
-        store_byte(32'h00000022, 8'hCC);
-        // Expected memory word @ 0x20: 0xFEEDCCAA. Writing 0xCC @ 0x22 means: 0xFE CC BB AA
-
-        // Store 0xDD to address 0x23 (Offset 3)
-        store_byte(32'h00000023, 8'hDD);
-        // Expected memory word @ 0x20: 0xDD CC BB AA
-
-        
-        // 3. LOAD Byte tests (Shift Right Logic Check)
-        // Load the stored values using the correct offsets to check shifting back to LSB.
-
-        $display("\n--- 3. LOAD BYTE TESTS (Shift Right) ---");
-        
-        // Load from 0x20 (Offset 0) -> Expect 0xAA
-        load_byte(32'h00000020, 8'hAA); 
-        
-        // Load from 0x21 (Offset 1) -> Expect 0xBB
-        load_byte(32'h00000021, 8'hBB);
-        
-        // Load from 0x22 (Offset 2) -> Expect 0xCC
-        load_byte(32'h00000022, 8'hCC);
-        
-        // Load from 0x23 (Offset 3) -> Expect 0xDD
-        load_byte(32'h00000023, 8'hDD);
-
-        $display("\n*** Simulation Finished Successfully ***");
-        $finish;
+        $display("========== END FULL TB ==========\n");
+        $stop;
     end
 
 endmodule
