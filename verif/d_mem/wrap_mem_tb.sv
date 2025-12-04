@@ -2,146 +2,89 @@
 
 module wrap_mem_tb;
 
-    // -----------------------
-    // Parameters & Signals
-    // -----------------------
-    parameter MEM_SIZE = 16; // Small size for testing
     logic clk;
     logic [31:0] addr;
     logic [31:0] wr_data;
-    logic [31:0] rd_data;
     logic wr_en;
-    logic [1:0] size;
+    logic [3:0] byte_en;
+    logic is_signed;
+    logic [31:0] rd_data;
 
     // Instantiate wrap_mem
-    wrap_mem #(.MEM_SIZE_WORDS(MEM_SIZE)) dut (
+    wrap_mem #(.MEM_SIZE_WORDS(16)) uut (
         .clk(clk),
         .addr(addr),
         .wr_data(wr_data),
         .wr_en(wr_en),
-        .size(size),
+        .byte_en(byte_en),
+        .is_signed(is_signed),
         .rd_data(rd_data)
     );
 
-    // -----------------------
-    // Clock generation
-    // -----------------------
+    // Clock
     initial clk = 0;
-    always #5 clk = ~clk; // 10ns period
+    always #5 clk = ~clk;
 
-    // -----------------------
-    // Test sequence
-    // -----------------------
+    // Task to write memory and display wr_data
+    task write_mem(input [31:0] a, input [31:0] d, input [3:0] be);
+        begin
+            @(negedge clk);
+            addr = a;
+            wr_data = d;
+            byte_en = be;
+            wr_en = 1;
+            @(negedge clk);
+            wr_en = 0;
+            $display("WRITE | addr=%b | byte_en=%b | wr_data=%b", addr, byte_en, wr_data);
+        end
+    endtask
+
+    // Task to read memory
+    task read_mem(input [31:0] a, input [3:0] be, input signed_flag);
+        begin
+            @(negedge clk);
+            addr = a;
+            byte_en = be;
+            is_signed = signed_flag;
+            wr_en = 0;
+            @(negedge clk);
+            $display("READ  | addr=%b | byte_en=%b | signed=%b | rd_data=%b", addr, byte_en, is_signed, rd_data);
+        end
+    endtask
+
     initial begin
-        // Initialize
-        wr_en = 0; addr = 0; wr_data = 0; size = 2'b10;
-        #10;
+        $display("Starting wrap_mem test...");
 
-        $display("\n--- BYTE WRITE/READ (SB/LB) ---");
-        // Byte write to unaligned address 5
-        addr = 5; wr_data = 8'hAA; wr_en = 1; size = 2'b00; 
-        #10; wr_en = 0;
+        // Example 1: Write a full word to addr=0
+        write_mem(0, 32'b11110000111100001111000011110000, 4'b1111);
+        read_mem(0, 4'b1111, 0);
 
-        // Read back byte at addr 5
-        addr = 5; size = 2'b00; 
-        #10; $display("Read byte at addr 5: %h (expected AA)", rd_data[7:0]);
+        // Example 2: Write halfword to addr=1 (offset 1)
+        write_mem(1, 32'b1010101010101010, 4'b0011);
+        read_mem(1, 4'b0011, 0);
 
-        // Byte write to unaligned address 6
-        addr = 6; wr_data = 8'hBB; wr_en = 1; size = 2'b00; 
-        #10; wr_en = 0;
+        // Example 3: Write byte to addr=5
+        write_mem(5, 32'b11001100, 4'b0001);
+        read_mem(5, 4'b0001, 0);
 
-        // Read back byte at addr 6
-        addr = 6; size = 2'b00; 
-        #10; $display("Read byte at addr 6: %h (expected BB)", rd_data[7:0]);
+        // Example 4: Write halfword to addr=6 (offset 2)
+        write_mem(6, 32'b1111111100000000, 4'b0011);
+        read_mem(6, 4'b0011, 0);
 
-        $display("\n--- HALFWORD WRITE/READ (SH/LH) ---");
-        // Halfword write to lower half of word at addr 4
-        addr = 4; wr_data = 16'h1234; wr_en = 1; size = 2'b01;
-        #10; wr_en = 0;
+        // Example 5: Write word to addr=8
+        write_mem(8, 32'b10101010101010101010101010101010, 4'b1111);
+        read_mem(8, 4'b1111, 0);
 
-        // Read back halfword at addr 4
-        addr = 4; size = 2'b01;
-        #10; $display("Read halfword at addr 4: %h (expected 1234)", rd_data[15:0]);
+        // Example 6: Another byte write to addr=11
+        write_mem(11, 32'b00110011, 4'b0001);
+        read_mem(11, 4'b0001, 0);
+        read_mem(8, 4'b1111, 0);
 
-        // Halfword write to upper half of word at addr 6
-        addr = 6; wr_data = 16'h5678; wr_en = 1; size = 2'b01;
-        #10; wr_en = 0;
+        // Example 7: Halfword write to addr=2 (offset 2)
+        write_mem(2, 32'b1111000011110000, 4'b0011);
+        read_mem(2, 4'b0011, 1); // signed example
 
-        // Read back halfword at addr 6
-        addr = 6; size = 2'b01;
-        #10; $display("Read halfword at addr 6: %h (expected 5678)", rd_data[15:0]);
-
-        $display("\n--- WORD WRITE/READ (SW/LW) ---");
-        // Word write to aligned address 8
-        addr = 8; wr_data = 32'hDEADBEEF; wr_en = 1; size = 2'b10;
-        #10; wr_en = 0;
-
-        // Read back word at addr 8
-        addr = 8; size = 2'b10;
-        #10; $display("Read word at addr 8: %h (expected DEADBEEF)", rd_data);
-
-        // Word write to aligned address 12
-        addr = 12; wr_data = 32'hCAFEBABE; wr_en = 1; size = 2'b10;
-        #10; wr_en = 0;
-
-        // Read back word at addr 12
-        addr = 12; size = 2'b10;
-        #10; $display("Read word at addr 12: %h (expected CAFEBABE)", rd_data);
-
-        $display("\n================ FULL WORD TEST =================");
-
-        // -------- Write full 32-bit word at unaligned address 5 --------
-        addr = 4; 
-        wr_data = 32'hA1B2C3D4;
-        wr_en = 1; size = 2'b10;
-        #10; wr_en = 0;
-
-        // -------- Read back FULL word --------
-        addr = 4; size = 2'b10;
-        #10;
-        $display("\nFull word read @ addr 4: %b (expected %b)", rd_data, 32'hA1B2C3D4);
-
-        // -------- Read individual bytes --------
-        // Byte 0
-        addr = 4; size = 2'b00;
-        #10;
-        $display("Byte[0] (addr 4): %b (hex: %h)", rd_data[7:0], rd_data[7:0]);
-
-        // Byte 1
-        addr = 5; size = 2'b00;
-        #10;
-        $display("Byte[1] (addr 5): %b (hex: %h)", rd_data[7:0], rd_data[7:0]);
-
-        // Byte 2
-        addr = 6; size = 2'b00;
-        #10;
-        $display("Byte[2] (addr 6): %b (hex: %h)", rd_data[7:0], rd_data[7:0]);
-
-        // Byte 3
-        addr = 7; size = 2'b00;
-        #10;
-        $display("Byte[3] (addr 7): %b (hex: %h)", rd_data[7:0], rd_data[7:0]);
-
-
-        $display("\n================ HALF WORD + BYTE TEST =================");
-
-        // Write 16-bit value at unaligned address 9
-        addr = 9;
-        wr_data = 16'h7777;
-        wr_en = 1; size = 2'b01;
-        #10; wr_en = 0;
-        
-        // Read full word to see effect
-        addr = 8; size = 2'b10;
-        #10;
-        $display("\nFull word after halfwrite @ addr 9: %b", rd_data);
-
-        // Read only one byte inside that halfword
-        addr = 10; size = 2'b00;
-        #10;
-        $display("Byte from halfword write (addr 10): %b (hex %h)", rd_data[7:0], rd_data[7:0]);
-
-        $display("\n--- TEST COMPLETE ---");
+        $display("wrap_mem test finished.");
         $stop;
     end
 

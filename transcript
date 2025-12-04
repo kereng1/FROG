@@ -1,43 +1,30 @@
-# vsim work.d_mem_tb -c -do "run -all; quit" 
-# Start time: 12:44:10 on Dec 02,2025
+# vsim wrap_mem_tb -do "add wave *; run -all" 
+# Start time: 15:02:16 on Dec 04,2025
 # Loading sv_std.std
-# Loading work.d_mem_tb
+# Loading work.wrap_mem_tb
+# Loading work.wrap_mem
 # Loading work.d_mem
-# run -all
-# 
-# ========== START FULL d_mem TB ==========
-# [WRITE] addr=0 byte_en=1111 data=0x11011110101011011011111011101111
-# [READ ] addr=0 byte_en=1111 --> rd_data=0x11011110101011011011111011101111
-# [WRITE] addr=4 byte_en=0011 data=0x00000000000000000001001000110100
-# [READ ] addr=4 byte_en=1111 --> rd_data=0xxxxxxxxxxxxxxxxx0001001000110100
-# [WRITE] addr=4 byte_en=1100 data=0x01010110011110000000000000000000
-# [READ ] addr=4 byte_en=1111 --> rd_data=0x01010110011110000001001000110100
-# [WRITE] addr=8 byte_en=0001 data=0x00000000000000000000000010101010
-# [READ ] addr=8 byte_en=1111 --> rd_data=0xxxxxxxxxxxxxxxxxxxxxxxxx10101010
-# [WRITE] addr=8 byte_en=0100 data=0x00000000101110110000000000000000
-# [READ ] addr=8 byte_en=1111 --> rd_data=0xxxxxxxxx10111011xxxxxxxx10101010
-# [WRITE] addr=12 byte_en=0001 data=0x00010001001000100011001101000100
-# [READ ] addr=12 byte_en=1111 --> rd_data=0xxxxxxxxxxxxxxxxxxxxxxxxx01000100
-# [WRITE] addr=12 byte_en=0010 data=0x01010101011001100111011110001000
-# [READ ] addr=12 byte_en=1111 --> rd_data=0xxxxxxxxxxxxxxxxx0111011101000100
-# [WRITE] addr=12 byte_en=0100 data=0x10011001101010101011101111001100
-# [READ ] addr=12 byte_en=1111 --> rd_data=0xxxxxxxxx101010100111011101000100
-# [WRITE] addr=12 byte_en=1000 data=0x11011101111011101111111100000000
-# [READ ] addr=12 byte_en=1111 --> rd_data=0x11011101101010100111011101000100
-# [WRITE] addr=2 byte_en=1111 data=0x11001010111111101011101010111110
-# [WRITE] addr=3 byte_en=0011 data=0x00010010001101000101011001111000
-# [WRITE] addr=1 byte_en=1000 data=0x10101010000000000000000000000000
-# [READ ] addr=1 byte_en=1111 --> rd_data=0x10101010xxxxxxxxxxxxxxxxxxxxxxxx
-# [WRITE] addr=1 byte_en=0100 data=0x00000000000000001011101100000000
-# [READ ] addr=1 byte_en=1111 --> rd_data=0x1010101000000000xxxxxxxxxxxxxxxx
-# [WRITE] addr=1 byte_en=0001 data=0x00000000000000000000000011001100
-# [READ ] addr=1 byte_en=1111 --> rd_data=0x1010101000000000xxxxxxxx11001100
-# ========== END FULL TB ==========
-# 
-# ** Note: $stop    : verif/d_mem/d_mem_tb.sv(116)
-#    Time: 515 ns  Iteration: 1  Instance: /d_mem_tb
-# Break in Module d_mem_tb at verif/d_mem/d_mem_tb.sv line 116
-# Stopped at verif/d_mem/d_mem_tb.sv line 116
-#  quit
-# End time: 12:44:11 on Dec 02,2025, Elapsed time: 0:00:01
+# add wave *
+#  run -all
+# Starting wrap_mem test...
+# WRITE | addr=00000000000000000000000000000000 | byte_en=1111 | wr_data=11110000111100001111000011110000
+# READ  | addr=00000000000000000000000000000000 | byte_en=1111 | signed=0 | rd_data=11110000111100001111000011110000
+# WRITE | addr=00000000000000000000000000000001 | byte_en=0011 | wr_data=00000000000000001010101010101010
+# READ  | addr=00000000000000000000000000000001 | byte_en=0011 | signed=0 | rd_data=00000000000000001010101010101010
+# WRITE | addr=00000000000000000000000000000101 | byte_en=0001 | wr_data=00000000000000000000000011001100
+# READ  | addr=00000000000000000000000000000101 | byte_en=0001 | signed=0 | rd_data=00000000000000000000000011001100
+# WRITE | addr=00000000000000000000000000000110 | byte_en=0011 | wr_data=00000000000000001111111100000000
+# READ  | addr=00000000000000000000000000000110 | byte_en=0011 | signed=0 | rd_data=00000000000000001111111100000000
+# WRITE | addr=00000000000000000000000000001000 | byte_en=1111 | wr_data=10101010101010101010101010101010
+# READ  | addr=00000000000000000000000000001000 | byte_en=1111 | signed=0 | rd_data=10101010101010101010101010101010
+# WRITE | addr=00000000000000000000000000001011 | byte_en=0001 | wr_data=00000000000000000000000000110011
+# READ  | addr=00000000000000000000000000001011 | byte_en=0001 | signed=0 | rd_data=00000000000000000000000000110011
+# READ  | addr=00000000000000000000000000001000 | byte_en=1111 | signed=0 | rd_data=00110011101010101010101010101010
+# WRITE | addr=00000000000000000000000000000010 | byte_en=0011 | wr_data=00000000000000001111000011110000
+# READ  | addr=00000000000000000000000000000010 | byte_en=0011 | signed=1 | rd_data=11111111111111111111000011110000
+# wrap_mem test finished.
+# ** Note: $stop    : verif/d_mem/wrap_mem_tb.sv(88)
+#    Time: 300 ns  Iteration: 1  Instance: /wrap_mem_tb
+# Break in Module wrap_mem_tb at verif/d_mem/wrap_mem_tb.sv line 88
+# End time: 15:02:26 on Dec 04,2025, Elapsed time: 0:00:10
 # Errors: 0, Warnings: 0
