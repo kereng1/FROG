@@ -1,39 +1,92 @@
-Core Design: Word-Aligned Access with Shift Logic
+# Memory Architecture
 
-This module serves as the critical interface between the CPU pipeline and the physical, 32-bit Block RAM. Its primary function is to correctly handle all Load and Store operations, especially those that access memory at unaligned addresses (Byte, Halfword).
+## Overview
 
-1. The Principle of Alignment Translation
+The memory system consists of two modules:
 
-The design intelligently uses the two least significant bits of the incoming address (adrs[1:0]), known as the Offset, to manage all access requests.
+1. **`d_mem` (Internal memory)**
+   - Word-addressable memory (each word = 32 bits).  
+   - Handles all reads and writes at word granularity.  
+   - Supports byte enables to write only specific bytes within a word.  
+   - Contains internal flip-flops (`DFF_MEM`) for synchronous read/write.
 
-Store (Write) Mechanism: On a write operation, the incoming data (wr_data) undergoes a Shift Left operation. This mechanism dynamically pushes the data into the exact Byte Lane (Offset 0, 1, 2, or 3) where it needs to reside within the 32-bit memory word. This ensures that the physical memory is updated correctly, even when only a single byte is being stored.
+2. **`wrap_mem` (Memory wrapper)**
+   - Interfaces directly with CPU.  
+   - Converts CPU byte-level addresses to word-aligned addresses for `d_mem`.  
+   - Supports **BYTE (8-bit), HALFWORD (16-bit), and WORD (32-bit)** accesses.
+   - Calculates **byte enable signals** and **shifts write data** according to the byte offset.  
+   - Aligns read data from `d_mem` and performs **sign extension** (via CPU input `is_signed`).  
+   - Ensures CPU always receives correctly aligned and extended data.
 
-Load (Read) Mechanism: On a read operation, the memory always returns the full 32-bit word. The required data (Byte or Halfword) is extracted by an opposing Shift Right operation. This shift moves the requested data from its floating position within the 32-bit word down to the Least Significant Bits (LSB). The data is now properly aligned and ready for the next pipeline stage to apply Sign or Zero Extension.
+## Data Flow
 
-2. Advantages and Flexibility
+1. **Write Operation:**
+   - CPU provides `addr`, `wr_data`, `byte_en`, and  `is_signed`.  
+   - `wrap_mem` calculates:
+     - Word-aligned address for `d_mem`.
+     - Shifted write data according to byte offset.
+     - Shifted byte enable signals.
+   - `d_mem` writes the data to the memory array.
 
-The module is explicitly built for high-performance and future-proofing:
-
-Parameterization: The architecture is generic, utilizing parameters like WORD_WIDTH and ADRS_WIDTH. This design choice allows for immediate and easy scaling to wider architectures (such as 64-bit systems) simply by modifying the initial parameter values.
-
-Control Efficiency: The module employs separate rden (Read Enable) and wren (Write Enable) control signals. This single-port control strategy is the standard, most efficient method for interfacing with synchronous Block RAMs in any pipelined CPU environment, ensuring clear separation of Load and Store functions within the MEM stage.
-
-Partial Access Support: Full support for Byte and Halfword operations is implemented by dynamically adjusting the data position using the Offset. This eliminates the need for slow read-modify-write cycles for small data stores.
-
-3. Interface Overview
-
-The module communicates using standard signals: adrs provides the full address, rden and wren control the access type, and rd_data outputs the fully aligned result, where the requested byte or halfword is always positioned at the LSB.
-
-4. Running Commands
-
-vlog +incdir+source/common source/d_mem/d_mem_Word_Aligned_Block_RAM.sv verif/d_mem_tb.sv
-vsim work.mem_tb
+2. **Read Operation:**
+   - `wrap_mem` requests the word from `d_mem` using word-aligned address.
+   - Shifts the data to bring the requested byte/halfword to LSB.
+   - Performs sign extension if necessary.
+   - Returns `rd_data` to the CPU.
 
 
+## Supported RISC-V Memory Instructions
 
-## Architecture Diagram
+The `wrap_mem_signed` module supports all standard memory access instructions:
 
-![Data Memory Architecture](assets/d_mem.png)
+| Instruction | Access Size | Signed / Unsigned | Byte Enable | Notes |
+|-------------|------------|-----------------|------------|-------|
+| **LB**      | Byte       | Signed           | 0001      | Loads 1 byte and sign-extends to 32-bit. `is_signed` = 1 |
+| **LBU**     | Byte       | Unsigned         | 0001      | Loads 1 byte and zero-extends to 32-bit. `is_signed` = 0 |
+| **LH**      | Halfword   | Signed           | 0011      | Loads 2 bytes and sign-extends to 32-bit. `is_signed` = 1 |
+| **LHU**     | Halfword   | Unsigned         | 0011      | Loads 2 bytes and zero-extends to 32-bit. `is_signed` = 0 |
+| **LW**      | Word       | Signed/Unsigned  | 1111      | Loads 4 bytes (full word). Sign extension is irrelevant. |
+| **SB**      | Byte       | N/A (Write)      | 0001      | Stores 1 byte at the given byte offset. |
+| **SH**      | Halfword   | N/A (Write)      | 0011      | Stores 2 bytes at the given byte offset. |
+| **SW**      | Word       | N/A (Write)      | 1111      | Stores full 4-byte word. |
 
-*Figure 1: Data Memory (DMEM) Word-Aligned Block RAM with Shift Logic*
-The diagram illustrates the "Shift Before and After" mechanism that enables efficient byte/halfword access on a 32-bit word-aligned memory array.
+### Notes
+- The `is_signed` input is provided by the CPU for LOAD instructions only.  
+  - `1` → sign-extend  
+  - `0` → zero-extend  
+- `wrap_mem_signed` calculates the proper **byte enable mask** and **shift** based on the byte offset within the word.  
+- `d_mem` handles word-aligned reads/writes; `wrap_mem_signed` manages all sub-word alignment, shifting, and extension.  
+- For STORE instructions, `byte_en` is shifted according to the byte offset so that only the targeted bytes are updated in `d_mem`.  
+- This ensures correct behavior for all RISC-V memory access instructions.
+
+## Testing
+
+To run the testbench, use the following commands in the terminal: 
+
+### Step 1: Compile the Design
+
+To compile all source files: from the project root directory in the terminal: /root/FPGA_BAU, run this command:
+
+```bash
+vlog -f verif/d_mem/wrap_mem_list.f
+```
+
+### Step 2: Run the Simulation
+
+**Option A: Command-line mode (output in terminal)**
+
+```bash
+vsim -c wrap_mem_tb -do "run -all; quit -f"
+```
+this will open the outputs inside the terminal command line
+if you want to see the waveforms in ModelSim GUI viewer, follow these steps:
+
+This displays test results directly in the terminal and exits automatically.
+
+**Option B: GUI mode (view waveforms)**
+
+```bash
+vsim wrap_mem_tb -do "add wave *; run -all"
+```
+
+This opens ModelSim GUI, adds all signals to the waveform window, runs the simulation, and displays waveforms.
