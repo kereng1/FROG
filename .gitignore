@@ -1,2 +1,7 @@
 # built directory
 target/
+
+# ModelSim/QuestaSim work directories (should always be under target/)
+# Prevent committing work directories anywhere in the project
+work/
+**/work/
