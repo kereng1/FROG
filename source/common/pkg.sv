@@ -82,4 +82,20 @@ package pkg;
     } t_core2mem_req;
 
 
+// Write back stage (Q104H stage)
+//------------------------------
+
+    // mux for the write back data 
+    typedef enum logic {
+        SEL_WR_DATA = 1'b0,
+        SEL_DMEM_RD_DATA = 1'b1
+    } t_wb_sel;
+
+    // Write back control signals
+    typedef struct packed {
+        t_wb_sel        sel_wb_Q104H;
+        logic           reg_write_en_Q104H;
+        logic [4:0]     reg_dst_Q104H;        // mux select for the write back data 
+    } t_wb_ctrl;
+
 endpackage

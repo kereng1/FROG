@@ -1,3 +1,9 @@
+// Instruction fetch (Q100H stage)
+//----------------------------------------------------------
+// 1. Send the PC (program counter) to the I_MEM
+// 2. Calculate the next PC (program counter)
+//----------------------------------------------------------
+
 `include "dff_macros.svh"
 
 module rv_if
