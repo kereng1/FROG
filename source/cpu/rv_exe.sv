@@ -1,3 +1,10 @@
+// this module is the execute stage of the pipeline (Q102H stage)
+//----------------------------------------------------------
+// 1. Perform the ALU operation
+// 2. Perform the branch condition check
+// 3. Perform the forwarding unit
+//----------------------------------------------------------
+
 `include "dff_macros.svh"
 
 module rv_exe
@@ -40,11 +47,11 @@ assign hazard_reg2_Q102H_Q104H = (ctrl.rs2_Q102H == ctrl.rd_Q104H) && ctrl.reg_w
 // mux for the forwarding unit in-case of DATA HAZARD
 assign post_reg_data1_Q102H = (hazard_reg1_Q102H_Q103H) ? wb_data_Q103H :
                               (hazard_reg1_Q102H_Q104H) ? wb_data_Q104H :
-                                                                     reg_data1_Q102H;
+                                                          reg_data1_Q102H;
 
 assign post_reg_data2_Q102H = (hazard_reg2_Q102H_Q103H) ? wb_data_Q103H :
                               (hazard_reg2_Q102H_Q104H) ? wb_data_Q104H :
-                                                                     reg_data2_Q102H;
+                                                          reg_data2_Q102H;
 
 // mux for the ALU inputs
 assign alu_in1_Q102H  = (ctrl.sel_alu_in1_Q102H == SEL_PC)       ? pc_Q102H:

@@ -1,5 +1,8 @@
 package pkg;
 
+// Execute stage (Q102H stage)
+//------------------------------
+
     // ALU operation types
     typedef enum logic [3:0] {
         ALU_ADD  = 4'b0000,
@@ -14,8 +17,6 @@ package pkg;
         ALU_AND  = 4'b0111
     } t_alu_op;
 
-//  Execute stage 
-//------------------------------
     // Branch condition operation type
     typedef enum logic [2:0] {
         BRANCH_COND_NONE = 3'b000,
@@ -53,6 +54,7 @@ package pkg;
         t_branch_cond_op    branch_cond_op;         // Branch condition operation
     } t_exe_ctrl;
 
+
 //  Memory access (Q103H stage) 
 //------------------------------
     // mux for the write back data 
@@ -64,9 +66,36 @@ package pkg;
 
     // Memory access control signals
     typedef struct packed {
-        t_mem_wb_sel      sel_wb_Q103H;       // mux for the write back data 
+        t_mem_wb_sel        sel_wb_Q103H;        // mux select for the write back data 
+        logic               dmem_wr_en_Q103H;    // memory write enable
+        logic               dmem_rd_en_Q103H;    // memory read enable
+        logic [3:0]         dmem_byte_en_Q103H;  // memory byte enable
     } t_mem_ctrl;
 
+    // Core to memory request
+    typedef struct packed {
+        logic [31:0]        wr_data;           // write data
+        logic [31:0]        address;           // address
+        logic               wr_en;             // write enable
+        logic               rd_en;             // read enable
+        logic [3:0]         byte_en;           // byte enable
+    } t_core2mem_req;
 
+
+// Write back stage (Q104H stage)
+//------------------------------
+
+    // mux for the write back data 
+    typedef enum logic {
+        SEL_WR_DATA = 1'b0,
+        SEL_DMEM_RD_DATA = 1'b1
+    } t_wb_sel;
+
+    // Write back control signals
+    typedef struct packed {
+        t_wb_sel        sel_wb_Q104H;
+        logic           reg_write_en_Q104H;
+        logic [4:0]     reg_dst_Q104H;        // mux select for the write back data 
+    } t_wb_ctrl;
 
 endpackage
