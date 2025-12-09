@@ -207,13 +207,16 @@ def run_stage(stage_name, stages_config, variables):
             if result.returncode != 0:
                 log(f"  ✗ Command failed (exit code: {result.returncode})", Colors.RED)
                 if BUILD_LOGGER:
-                    BUILD_LOGGER.finish(success=False)
+                    log_path = BUILD_LOGGER.finish(success=False)
+                    # Print log path immediately on failure
+                    print(f"\n{Colors.DIM}  Log: {log_path}{Colors.RESET}")
                 sys.exit(result.returncode)
                 
         except Exception as e:
             log(f"  ✗ {e}", Colors.RED)
             if BUILD_LOGGER:
-                BUILD_LOGGER.finish(success=False)
+                log_path = BUILD_LOGGER.finish(success=False)
+                print(f"\n{Colors.DIM}  Log: {log_path}{Colors.RESET}")
             sys.exit(1)
     
     log(f"  ✓ done", Colors.GREEN)

@@ -23,7 +23,7 @@ jobs:
 
       - name: Build 
       
-      Sim - RF
+      - name: Build Sim - RF
         run: ./build/builder.py -dut rf -sim
 
       - name: Build Sim - D_MEM

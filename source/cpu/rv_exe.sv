@@ -93,8 +93,8 @@ always_comb begin
     endcase
 end
 
-`DFF_EN(pc_plus4_Q103H, pc_plus4_Q102H, clk, rst)
-`DFF_EN(alu_out_Q103H, alu_out_Q102H, clk, rst)
-`DFF_EN(dmem_wr_data_Q103H, post_reg_data2_Q102H, clk, rst)
+`DFF_EN(pc_plus4_Q103H, pc_plus4_Q102H, clk, ctrl.ready_Q102H)
+`DFF_EN(alu_out_Q103H, alu_out_Q102H, clk, ctrl.ready_Q102H)
+`DFF_EN(dmem_wr_data_Q103H, post_reg_data2_Q102H, clk, ctrl.ready_Q102H)
 
 endmodule
