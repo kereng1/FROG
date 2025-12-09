@@ -1,7 +1,8 @@
 package pkg;
 
+//-----------------------------------------------
 // Instruction Fetch stage (Q100H/Q101H stage)
-//------------------------------
+//-----------------------------------------------
 
     // Instruction fetch control signals
     typedef struct packed {
@@ -10,6 +11,7 @@ package pkg;
         logic               sel_next_pc_alu_out_Q102H; // Select ALU output for next PC (branch/jump)
     } t_if_ctrl;
 
+//------------------------------
 // Execute stage (Q102H stage)
 //------------------------------
 
@@ -66,7 +68,9 @@ package pkg;
     } t_exe_ctrl;
 
 
-//  Memory access (Q103H stage) 
+//-----------------------------------------------
+// Memory access (Q103H stage) 
+//-----------------------------------------------
 //------------------------------
     // mux for the write back data 
     typedef enum logic {
@@ -82,7 +86,7 @@ package pkg;
         logic               dmem_wr_en_Q103H;    // memory write enable
         logic               dmem_rd_en_Q103H;    // memory read enable
         logic [3:0]         dmem_byte_en_Q103H;  // memory byte enable
-    } t_mem_ctrl;
+    } t_ma_ctrl;
 
     // Core to memory request
     typedef struct packed {
@@ -94,9 +98,9 @@ package pkg;
     } t_core2mem_req;
 
 
+//-----------------------------------------------
 // Write back stage (Q104H stage)
-//------------------------------
-
+//-----------------------------------------------
     // mux for the write back data 
     typedef enum logic {
         SEL_WR_DATA = 1'b0,

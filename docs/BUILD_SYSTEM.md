@@ -1,76 +1,112 @@
-
 # Build System Overview
 
-This update introduces a streamlined build workflow for the CPU project, including automated compilation, simulation, and logging.
+This project uses a generic **Python + YAML** build system designed for flexibility and automation. It supports automated compilation, simulation, logging, and CI pipelines.
 
-## Key Features
+## 🚀 Usage
 
-### ✔ Unified Build Script (`build/run_workflow.sh`)
-
-* One command to **compile**, **run**, or **open GUI**.
-* Works for all components (alu, pc, rf, d_mem, etc.).
-* Automatic log generation with timestamps.
-* Works from any directory.
-
-### ✔ Supported Actions
+The build script is located at `build/builder.py`.
 
 ```bash
-
-./build/run_workflow.sh <component> compile # Compile the design only
-./build/run_workflow.sh <component_name> run # Compile and run simulation (CLI mode) 
-./build/run_workflow.sh <component_name> run-gui # Compile and run simulation (ModelSim GUI mode) 
-./build/run_workflow.sh <component_name> gui # Alias for run-gui 
-./build/run_workflow.sh <component_name> clean # Remove generated files 
-./build/run_workflow.sh help # Show help message
+./build/builder.py -dut <component> [flags]
 ```
 
-**Examples**
+### Flags
+
+| Flag | Description | Stage |
+| :--- | :--- | :--- |
+| `-dut <name>` | **Required**. Device Under Test (e.g., `alu`, `pc`). | N/A |
+| `-hw` | Compile SystemVerilog sources. | `hw` |
+| `-sim` | Run simulation (CLI mode). | `sim` |
+| `-debug` | Run simulation with GUI (view waveforms). | `debug` |
+| `-clean` | Clean build artifacts for the DUT. | `clean` |
+| `-v` | Enable verbose output. | N/A |
+
+### Examples
 
 ```bash
-./build/run_workflow.sh alu run # Build and run ALU testbench
-./build/run_workflow.sh pc run-gui # View ALU waveforms in GUI
-./build/run_workflow.sh rf compile # Compile RF testbench only
+# Compile and run simulation for ALU
+./build/builder.py -dut alu -hw -sim
+
+# Compile only
+./build/builder.py -dut pc -hw
+
+# Open GUI to debug waveforms
+./build/builder.py -dut rf -hw -debug
+
+# Clean artifacts
+./build/builder.py -dut alu -clean
 ```
 
-### Running from Different Directories The build script automatically navigates to the 
+---
 
-project root internally. You can run it from any directory by providing the correct path to the script:
-bash
+## 📂 Configuration (`build/workflow.yaml`)
 
-# From project root
+The entire build process is defined in `build/workflow.yaml`. You can easily add new stages without modifying the Python script.
 
-./build/run_workflow.sh alu run
+```yaml
+stages:
+  hw:
+    description: "Compile SystemVerilog sources"
+    requires_dut: true
+    dependencies:
+      - init
+    commands:
+      - 'vlog -sv ...'
+```
 
-# From subdirectories (provide relative or absolute path to script)
-../../build/run_workflow.sh alu run
-/root/FPGA_BAU/build/run_workflow.sh alu run
+**Key Features:**
+- **Dynamic CLI:** New stages automatically appear as flags (e.g., adding a `lint` stage adds a `-lint` flag).
+- **Dependency Resolution:** Automatically runs required prerequisites (e.g., `-sim` runs `-hw` first).
+- **Variables:** Supports dynamic paths like `{dut_dir}`, `{logs_dir}`, etc.
 
+---
 
-### ✔ Logging
+## 📝 Logging
 
-* Logs stored under: `target/logs/`
-* File format: `<component>_build_YYYYMMDD_HHMMSS.log`
-* Contains full compilation + simulation output for debugging.
+Build artifacts and logs are stored per-DUT in `target/<dut>/`.
 
-### ✔ Multi-Component Support
+**Structure:**
+```text
+target/
+  ├── alu/
+  │   ├── logs/
+  │   │   ├── build_20251208_130000/
+  │   │   │   ├── build.log       # Full build trace
+  │   │   │   ├── compile.log     # Compiler output (vlog)
+  │   │   │   └── transcript.log  # Simulator output (vsim)
+  │   │   └── build_latest/       # Symlink to latest build dir
+  │   └── work/                   # Compiled library
+```
 
-Each component must have:
+At the end of a run, the script prints the path to the main log file.
 
-* `verif/<component>/<component>_list.f`
-* `verif/<component>/<component>_tb.sv`
-* Testbench module named `<component>_tb`
+---
 
-### Current Components
+## 🤖 CI/Regression
 
-* alu
-* pc
-* rf
-* d_mem
-  (adding new ones uses the same structure)
+A local CI script is provided to run all tests defined in the GitHub Actions workflow (`.github/workflows/ci.yaml`).
 
-## Benefits
+```bash
+./build/run_ci.py
+```
 
-* Faster workflow (no manual `vlog`/`vsim`)
-* Clean, consistent build structure
-* Easy debugging with logs
-* Extensible as the project grows
+This runs all IP simulations in parallel (conceptually) and provides a live status dashboard in the terminal:
+
+```text
+✓ PASS  Build & Sim - ALU         → .../build_latest/build.log
+✓ PASS  Build & Sim - PC          → .../build_latest/build.log
+✗ FAIL  Build & Sim - RV_IF       → .../build_latest/build.log
+```
+
+---
+
+## 🏗 Directory Structure
+
+* **`build/`**: Build scripts and configuration.
+  * `builder.py`: Generic build executor.
+  * `workflow.yaml`: Build configuration.
+  * `run_ci.py`: Local regression runner.
+* **`verif/<dut>/`**: Verification environment for each component.
+  * `<dut>_list.f`: File list for compilation.
+  * `<dut>_tb.sv`: Testbench top module.
+* **`target/<dut>/`**: Generated output (logs, waveforms, compiled libs).
