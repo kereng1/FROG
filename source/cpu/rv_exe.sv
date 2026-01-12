@@ -37,11 +37,11 @@ logic hazard_reg1_Q102H_Q104H;
 logic hazard_reg2_Q102H_Q103H;
 logic hazard_reg2_Q102H_Q104H;
 
-// hazard detection for the forwarding unit
-assign hazard_reg1_Q102H_Q103H = (ctrl.rs1_Q102H == ctrl.rd_Q103H) && ctrl.reg_write_en_Q103H;
-assign hazard_reg1_Q102H_Q104H = (ctrl.rs1_Q102H == ctrl.rd_Q104H) && ctrl.reg_write_en_Q104H;
-assign hazard_reg2_Q102H_Q103H = (ctrl.rs2_Q102H == ctrl.rd_Q103H) && ctrl.reg_write_en_Q103H;
-assign hazard_reg2_Q102H_Q104H = (ctrl.rs2_Q102H == ctrl.rd_Q104H) && ctrl.reg_write_en_Q104H;
+//Data hazard detection for the forwarding unit (exclude x0 - hardwired to zero)
+assign hazard_reg1_Q102H_Q103H = (ctrl.rs1_Q102H == ctrl.rd_Q103H) && ctrl.reg_write_en_Q103H && (ctrl.rs1_Q102H != 5'd0);
+assign hazard_reg1_Q102H_Q104H = (ctrl.rs1_Q102H == ctrl.rd_Q104H) && ctrl.reg_write_en_Q104H && (ctrl.rs1_Q102H != 5'd0);
+assign hazard_reg2_Q102H_Q103H = (ctrl.rs2_Q102H == ctrl.rd_Q103H) && ctrl.reg_write_en_Q103H && (ctrl.rs2_Q102H != 5'd0);
+assign hazard_reg2_Q102H_Q104H = (ctrl.rs2_Q102H == ctrl.rd_Q104H) && ctrl.reg_write_en_Q104H && (ctrl.rs2_Q102H != 5'd0);
 
 
 // mux for the forwarding unit in-case of DATA HAZARD
@@ -54,7 +54,7 @@ assign post_reg_data2_Q102H = (hazard_reg2_Q102H_Q103H) ? wb_data_Q103H :
                                                           reg_data2_Q102H;
 
 // mux for the ALU inputs
-assign alu_in1_Q102H  = (ctrl.sel_alu_in1_Q102H == SEL_PC)       ? pc_Q102H:
+assign alu_in1_Q102H  = (ctrl.sel_alu_in1_Q102H == SEL_PC)        ? pc_Q102H:
                         (ctrl.sel_alu_in1_Q102H == SEL_REG_DATA1) ? post_reg_data1_Q102H :
                                                                    32'b0;
 
@@ -68,7 +68,7 @@ always_comb begin
     case (ctrl.alu_op)
         ALU_ADD: alu_out_Q102H = alu_in1_Q102H + alu_in2_Q102H;
         ALU_SUB: alu_out_Q102H = alu_in1_Q102H - alu_in2_Q102H;
-        ALU_SLT: alu_out_Q102H = (alu_in1_Q102H < alu_in2_Q102H) ;
+        ALU_SLT: alu_out_Q102H = ($signed(alu_in1_Q102H) < $signed(alu_in2_Q102H));
         ALU_SLTU: alu_out_Q102H = (alu_in1_Q102H < alu_in2_Q102H);
         ALU_SLL: alu_out_Q102H = alu_in1_Q102H << alu_in2_Q102H[4:0];
         ALU_SRL: alu_out_Q102H = alu_in1_Q102H >> alu_in2_Q102H[4:0];
