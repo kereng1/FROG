@@ -78,10 +78,10 @@ stages:
       - 'vsim -c -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "run -all; quit -f"'
 
   debug:
-    description: "Run simulation with GUI"
+    description: "Open simulation GUI (interactive)"
     requires_dut: true
     dependencies:
       - hw
     log_file: "{sim_transcript}"
     commands:
-      - 'vsim -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "add wave *; run -all"'
+      - 'vsim -voptargs=+acc -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "add wave -r sim:/{tb_name}/dut/*"'
