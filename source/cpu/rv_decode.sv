@@ -13,7 +13,7 @@
 `include "dff_macros.svh"
 
 module rv_decode 
-    import pkg::*;
+import pkg::*;
 #(parameter RF_NUM_MSB = 31) // Standard RISC-V has 32 regs (x0 is hardwired zero)
 (
     input  logic        clk,
