@@ -11,6 +11,47 @@ package pkg;
         logic               sel_next_pc_alu_out_Q102H; // Select ALU output for next PC (branch/jump)
     } t_if_ctrl;
 
+//---------------------------------------------------------------
+// Decode stage (Q101H stage)
+//---------------------------------------------------------------
+
+    // RV32I opcode map
+    typedef enum logic [6:0] {
+        LUI      = 7'b0110111,
+        AUIPC    = 7'b0010111,
+        JAL      = 7'b1101111,
+        JALR     = 7'b1100111,
+        BRANCH   = 7'b1100011,
+        LOAD     = 7'b0000011,
+        STORE    = 7'b0100011,
+        I_OP     = 7'b0010011,
+        R_OP     = 7'b0110011,
+        MISC_MEM = 7'b0001111,
+        SYSTEM   = 7'b1110011
+    } t_opcode;
+
+    // Immediate selection for decode/imm-gen
+    typedef enum logic [2:0] {
+        IMM_I_TYPE = 3'd0,
+        IMM_S_TYPE = 3'd1,
+        IMM_B_TYPE = 3'd2,
+        IMM_U_TYPE = 3'd3,
+        IMM_J_TYPE = 3'd4
+    } t_imm_sel;
+
+    // Decode stage control (for rv_decode + pipeline gating)
+    typedef struct packed {
+        logic       ready_Q101H;     // Enable sampling instruction into decode
+        logic       ready_Q102H;     // Enable advancing decode results to EXE
+        logic       valid_Q101H;     // Instruction validity after flush/inserted bubble
+        logic [4:0] reg_src1_Q101H;       // Source register 1
+        logic [4:0] reg_src2_Q101H;       // Source register 2
+        logic [4:0] rd_Q101H;        // Destination register (raw from instr)
+        logic       uses_reg_src1_Q101H;  // Hint: instruction actually needs rs1
+        logic       uses_reg_src2_Q101H;  // Hint: instruction actually needs rs2
+        t_imm_sel   sel_imm_type_Q101H;   // Immediate type selector
+    } t_decode_ctrl;
+
 //------------------------------
 // Execute stage (Q102H stage)
 //------------------------------
@@ -106,6 +147,28 @@ package pkg;
         SEL_WR_DATA = 1'b0,
         SEL_DMEM_RD_DATA = 1'b1
     } t_wb_sel;
+
+    // Pipeline control struct (must be after all dependent types)
+    typedef struct packed {
+        t_alu_op            alu_op;
+        t_branch_cond_op    branch_cond_op;
+        t_alu_in1_sel       sel_alu_in1;
+        t_alu_in2_sel       sel_alu_in2;
+        t_mem_wb_sel        mem_wb_sel;
+        t_wb_sel            wb_sel;
+        t_imm_sel           imm_sel;
+        logic [3:0]         dmem_byte_en;
+        logic               dmem_wr_en;
+        logic               dmem_rd_en;
+        logic               reg_write_en;
+        logic               is_load;
+        logic               uses_rs1;
+        logic               uses_rs2;
+        logic [4:0]         rd;
+        logic [4:0]         rs1;
+        logic [4:0]         rs2;
+        logic               dmem_sign_ext;
+    } t_ctrl;
 
     // Write back control signals
     typedef struct packed {

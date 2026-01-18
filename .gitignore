@@ -5,3 +5,5 @@ work/
 
 
 hila_work/
+# simulation logs
+verif/rv_cpu/*.log
