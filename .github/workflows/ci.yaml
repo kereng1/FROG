@@ -1,0 +1,43 @@
+name: IP Build & Simulation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build & Sim - ALU
+        run: ./build/builder.py -dut alu -sim
+
+      - name: Build & Sim - PC
+        run: ./build/builder.py -dut pc -sim
+
+      - name: Build 
+      
+      - name: Build Sim - RF
+        run: ./build/builder.py -dut rf -sim
+
+      - name: Build Sim - D_MEM
+        run: ./build/builder.py -dut d_mem -sim
+
+      - name: Build hw - RV_IF
+        run: ./build/builder.py -dut rv_if -hw
+
+      - name: Build hw - RV_EXE
+        run: ./build/builder.py -dut rv_exe -hw
+
+      - name: Build hw - RV_MEM
+        run: ./build/builder.py -dut rv_mem -hw
+
+      - name: Build hw - RV_WB
+        run: ./build/builder.py -dut rv_wb -hw
+

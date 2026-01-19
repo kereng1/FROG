@@ -1,0 +1,87 @@
+# ============================================
+# FPGA Build Workflow Configuration
+# ============================================
+# This file defines the complete build workflow.
+# The Python builder reads this and executes accordingly.
+
+# --------------------------------------------
+# Variables - paths and parameters
+# --------------------------------------------
+variables:
+  project_root: "{cwd}"
+  target_dir: "{project_root}/target"
+  
+  # DUT-specific output paths
+  dut_out_dir: "{target_dir}/{dut}"
+  work_dir: "{dut_out_dir}/work"
+  logs_dir: "{dut_out_dir}/logs"
+  
+  # Per-build log directory (set by builder)
+  build_log_dir: "{logs_dir}/build_{timestamp}"
+  compile_log: "{build_log_dir}/compile.log"
+  sim_transcript: "{build_log_dir}/transcript.log"
+  
+  # DUT-specific source paths
+  dut_dir: "{project_root}/verif/{dut}"
+  list_file: "{dut_dir}/{dut}_list.f"
+  tb_name: "{dut}_tb"
+  
+  # Simulation output files
+  wlf_file: "{dut_out_dir}/{dut}_vsim.wlf"
+
+# --------------------------------------------
+# Workflow Stages
+# --------------------------------------------
+# Each stage can have:
+#   - description: Help text for CLI
+#   - requires_dut: true/false (default: false)
+#   - dependencies: list of stages to run first
+#   - commands: shell commands to execute
+#   - hidden: true to hide from CLI flags (for internal stages)
+
+stages:
+
+  # --- Internal stages (not exposed as flags) ---
+  
+  init:
+    hidden: true
+    commands:
+      - 'mkdir -p "{build_log_dir}"'
+      - 'mkdir -p "{work_dir}"'
+
+  # --- User-facing stages (exposed as CLI flags) ---
+
+  clean:
+    description: "Clean build artifacts"
+    requires_dut: true
+    commands:
+      - 'rm -rf "{dut_out_dir}"'
+
+  hw:
+    description: "Compile SystemVerilog sources"
+    requires_dut: true
+    dependencies:
+      - init
+    log_file: "{compile_log}"
+    commands:
+      - 'if [ ! -f "{list_file}" ]; then echo "Error: {list_file} not found"; exit 1; fi'
+      - 'if [ -d "{work_dir}" ]; then vdel -lib "{work_dir}" "{tb_name}" -quiet 2>/dev/null || true; fi'
+      - 'vlog -sv -work "{work_dir}" -f "{list_file}" 2>&1 | tee "{compile_log}"'
+
+  sim:
+    description: "Run simulation (CLI)"
+    requires_dut: true
+    dependencies:
+      - hw
+    log_file: "{sim_transcript}"
+    commands:
+      - 'vsim -c -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "run -all; quit -f"'
+
+  debug:
+    description: "Open simulation GUI (interactive)"
+    requires_dut: true
+    dependencies:
+      - hw
+    log_file: "{sim_transcript}"
+    commands:
+      - 'vsim -voptargs=+acc -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "add wave -r sim:/{tb_name}/dut/*"'
