@@ -94,7 +94,7 @@ module rv_cpu_tb;
 
         // 2. Load the program from the HEX file using XMR
         $display("TB: Loading program from verif/memory/inst_mem.hex into IMEM");
-        $readmemh("verif/memory/inst_mem.hex", u_unified_mem.i_mem.mem);
+        $readmemh("verif/rv_cpu_tb/inst_mem.hex", u_unified_mem.i_mem.mem);
     end
 
     //----------------------------------------------------------

@@ -70,12 +70,13 @@ module wrap_mem #(
             end
         end
     end
+    
     //----------------------------------------
     // INSTANTIATE d_mem
     //----------------------------------------
-    d_mem #(
+    mem #(
         .MEM_SIZE_WORDS(MEM_SIZE_WORDS)
-    ) memory (
+    ) mem_array (
         .clk     (clk),
         .addr    (word_addr),        // word index
         .wr_en   (wr_en),
@@ -83,6 +84,7 @@ module wrap_mem #(
         .byte_en (shifted_byte_en),
         .rd_data (mem_rd_data)
     );
+
 
     //----------------------------------------
     // READ PATH: CREATE MASK AND ALIGN DATA
