@@ -22,11 +22,8 @@ import pkg::*;
     // Control interface from Control Unit
     input  t_decode_ctrl   ctrl,         // Contains rs1, rs2, rd, imm_type, and ready signals
     
-    // Data inputs
     input  logic [31:0] pc_Q101H,         // PC from IF stage
     input  logic [31:0] instruction_Q101H, // Instruction from i_mem
-
-    // Data outputs to EXE stage
     output logic [31:0] pc_Q102H,
     output logic [31:0] imm_Q102H,
     output logic [31:0] reg_data1_Q102H,
@@ -34,7 +31,7 @@ import pkg::*;
     
     // Data inputs from write back stage
     input  logic [31:0] wb_data_Q104H,
-    input  logic [4:0]  rd_Q104H,
+    input  logic [4:0]  reg_dst_Q104H,
     input  logic        reg_write_en_Q104H
 );
 
@@ -69,20 +66,20 @@ end
 //==========================================================
 // 2. Register File Write
 //==========================================================
-`DFF_EN(rf[rd_Q104H], wb_data_Q104H, clk, (reg_write_en_Q104H && (rd_Q104H != 5'b0)))
+`DFF_EN(rf[reg_dst_Q104H], wb_data_Q104H, clk, (reg_write_en_Q104H && (reg_dst_Q104H != 5'b0)))
 
 //==========================================================
 // 3. Register File Read & Forwarding
-//    Handles RAW hazard when WB writes to a register that decode reads in the same cycle
+//    Handles rd after write when WB writes to a register that decode reads in the same cycle
 //==========================================================
-assign match_rs1_aftr_wb_Q101H = (ctrl.reg_src1_Q101H == rd_Q104H) && reg_write_en_Q104H && (rd_Q104H != 5'b0);
-assign reg_rd_data1_Q101H = (ctrl.reg_src1_Q101H == 5'b0)  ? 32'b0 :
-                            (match_rs1_aftr_wb_Q101H)      ? wb_data_Q104H : 
-                                                             rf[ctrl.reg_src1_Q101H];
+assign match_rs1_aftr_wb_Q101H = (ctrl.reg_src1_Q101H == reg_dst_Q104H) && reg_write_en_Q104H && (reg_dst_Q104H != 5'b0);
+assign reg_rd_data1_Q101H = (ctrl.reg_src1_Q101H == 5'b0)  ? 32'b0 :                   // x0 is hardwired to 0
+                            (match_rs1_aftr_wb_Q101H)      ? wb_data_Q104H :           // forwards WrDataQ104H -> RdDataQ101H
+                                                             rf[ctrl.reg_src1_Q101H];  // reads from register file
 
-assign match_rs2_aftr_wb_Q101H = (ctrl.reg_src2_Q101H == rd_Q104H) && reg_write_en_Q104H && (rd_Q104H != 5'b0);
-assign reg_rd_data2_Q101H = (ctrl.reg_src2_Q101H == 5'b0)  ? 32'b0 :
-                            (match_rs2_aftr_wb_Q101H)      ? wb_data_Q104H : 
+assign match_rs2_aftr_wb_Q101H = (ctrl.reg_src2_Q101H == reg_dst_Q104H) && reg_write_en_Q104H && (reg_dst_Q104H != 5'b0);
+assign reg_rd_data2_Q101H = (ctrl.reg_src2_Q101H == 5'b0)  ? 32'b0 :                   // x0 is hardwired to 0
+                            (match_rs2_aftr_wb_Q101H)      ? wb_data_Q104H :           // forwards WrDataQ104H -> RdDataQ101H
                                                              rf[ctrl.reg_src2_Q101H];
 
 //==========================================================

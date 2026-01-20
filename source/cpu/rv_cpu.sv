@@ -118,7 +118,7 @@ rv_decode u_rv_decode (
     .reg_data1_Q102H    (reg_data1_Q102H),
     .reg_data2_Q102H    (reg_data2_Q102H),
     .wb_data_Q104H      (wb_data_Q104H),
-    .rd_Q104H           (wb_ctrl.reg_dst_Q104H),
+    .reg_dst_Q104H      (wb_ctrl.reg_dst_Q104H),
     .reg_write_en_Q104H (wb_ctrl.reg_write_en_Q104H)
 );
 

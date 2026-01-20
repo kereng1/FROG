@@ -74,7 +74,7 @@ module rv_cpu_tb;
 
     initial begin
         rst = 1'b1;
-        #100;
+        #100; // 100ns delay
         rst = 1'b0;
     end
 
@@ -110,7 +110,7 @@ module rv_cpu_tb;
     // Trackers (console + log file)
     //----------------------------------------------------------
     initial begin
-        log_fd = $fopen("verif/rv_cpu/rv_cpu_trace.log", "w");
+        log_fd = $fopen("target/rv_cpu/logs/rv_cpu_trace.log", "w");
         cycle_count = 0;
     end
 
