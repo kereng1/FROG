@@ -20,6 +20,9 @@ source/cpu/rv_cpu.sv
 # Data memory (ready for use)
 source/d_mem/d_mem.sv
 source/d_mem/wrap_mem.sv
+source/cpu/memory/memory.sv
+source/cpu/memory/wrap_mem.sv
+source/cpu/memory/d_mem.sv
 
 # Testbench
 verif/rv_cpu/rv_cpu_tb.sv

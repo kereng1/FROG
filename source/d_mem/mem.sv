@@ -11,7 +11,7 @@
 
 `include "source/common/dff_macros.svh"
 
-module d_mem #(
+module mem #(
     parameter MEM_SIZE_WORDS = 256 
 )(
     input  logic         clk,

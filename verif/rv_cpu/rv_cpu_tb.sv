@@ -14,8 +14,8 @@ module rv_cpu_tb;
     // Parameters
     //----------------------------------------------------------
     parameter CLK_PERIOD = 20;
-    parameter IMEM_DEPTH = 64;
-    parameter DMEM_DEPTH = 64;
+    parameter IMEM_SIZE_WORDS = 256;  // Size of instruction memory
+    parameter DMEM_SIZE_BYTES = 1024; // Size of data memory (64 words * 4 bytes)
 
     //----------------------------------------------------------
     // Signals
@@ -42,26 +42,30 @@ module rv_cpu_tb;
         .core2dmem_req  (core2dmem_req),
         .dmem_rd_data   (dmem_rd_data)
     );
+    
+    //----------------------------------------------------------
+    // FIXED: Using YOUR Unified Memory Module 
+    // This replaces 'simple_imem' and the standalone 'wrap_mem'
+    //----------------------------------------------------------
+    memory #(
+        .IMEM_SIZE_WORDS(IMEM_SIZE_WORDS),
+        .DMEM_SIZE_BYTES(DMEM_SIZE_BYTES)
+    ) u_unified_mem (
+        .clk                 (clk),
+        .rst                 (rst),
+        
+        // Instruction Interface (PC -> Instr)
+        .pc_Q100H            (imem_addr),
+        .ready_Q101H         (1'b1), // Keeps pipeline moving
+        .instruction_Q101H   (imem_rd_data),
 
-    //----------------------------------------------------------
-    // Simple IMEM (temporary replacement)
-    //----------------------------------------------------------
-    simple_imem #(.DEPTH(IMEM_DEPTH)) u_imem (
-        .addr (imem_addr),
-        .rdata(imem_rd_data)
-    );
-
-    //----------------------------------------------------------
-    // DMEM (use existing wrap_mem)
-    //----------------------------------------------------------
-    wrap_mem #(.MEM_SIZE_BYTES(DMEM_DEPTH * 4)) u_dmem (
-        .clk      (clk),
-        .addr     (core2dmem_req.address),
-        .wr_data  (core2dmem_req.wr_data),
-        .wr_en    (core2dmem_req.wr_en),
-        .is_signed(1'b1),
-        .byte_en  (core2dmem_req.byte_en),
-        .rd_data  (dmem_rd_data)
+        // Data Interface (ALU out -> Read Data)
+        .alu_out_Q103H       (core2dmem_req.address),
+        .dmem_wr_data_Q103H  (core2dmem_req.wr_data),
+        .dmem_wr_en_Q103H    (core2dmem_req.wr_en),
+        .dmem_byte_en_Q103H  (core2dmem_req.byte_en),
+        .dmem_is_signed_Q103H(1'b1), // Default signed, can be linked to req if exists
+        .dmem_rd_data_Q104H  (dmem_rd_data)
     );
 
     //----------------------------------------------------------
@@ -79,31 +83,18 @@ module rv_cpu_tb;
     end
 
     //----------------------------------------------------------
-    // XMR: Load IMEM directly (no IMEM module ready yet)
+    // FIXED XMR: Load your memory module using readmemh
+    // Pointing directly to the memory array inside your module
     //----------------------------------------------------------
     initial begin
-        // Fill with NOPs
-        for (int i = 0; i < IMEM_DEPTH; i++) begin
-            u_imem.mem[i] = 32'h00000013;
+        // 1. First, clear memory or fill with NOPs (optional but recommended)
+        for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
+            u_unified_mem.i_mem.mem[i] = 32'h00000013; // NOP
         end
 
-        // Program:
-        // ADDI x1, x0, 10
-        // ADDI x2, x0, 20
-        // ADD  x3, x1, x2
-        // SUB  x4, x2, x1
-        // SW   x3, 0(x0)
-        // LW   x5, 0(x0)
-        // NOP  (bubble for load-use)
-        // ADDI x6, x5, 5
-        u_imem.mem[0] = 32'h00A00093;
-        u_imem.mem[1] = 32'h01400113;
-        u_imem.mem[2] = 32'h002081B3;
-        u_imem.mem[3] = 32'h40110233;
-        u_imem.mem[4] = 32'h00302023;
-        u_imem.mem[5] = 32'h00002283;
-        u_imem.mem[6] = 32'h00000013;
-        u_imem.mem[7] = 32'h00528313;
+        // 2. Load the program from the HEX file using XMR
+        $display("TB: Loading program from verif/memory/inst_mem.hex into IMEM");
+        $readmemh("verif/rv_cpu_tb/inst_mem.hex", u_unified_mem.i_mem.mem);
     end
 
     //----------------------------------------------------------

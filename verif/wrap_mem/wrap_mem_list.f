@@ -5,9 +5,11 @@
 +incdir+source/common
 +incdir+source/d_mem
 +incdir+verif/d_mem
++incdir+verif/wrap_mem
+
 
 # Source files - this is the list of files to compile
 source/common/dff_macros.svh
 source/d_mem/d_mem.sv
-source/d_mem/wrap_mem.sv
-verif/d_mem/wrap_mem_tb.sv
+source/wrap_mem/wrap_mem.sv
+verif/wrap_mem/wrap_mem_tb.sv
