@@ -4,8 +4,7 @@
 +incdir+source/cpu
 
 # Source files - compile in order (dependencies first)
-source/common/pkg.sv
+source/common/rv_pkg.sv
 source/common/dff_macros.svh
 source/cpu/rv_if.sv
-# verif/rv_if/rv_if_tb.sv  (if i want to add a testbench, add it here take off the comment)
-
+# verif/rv_if/rv_if_tb.sv  (if you want to add a testbench, add it here and remove the comment)

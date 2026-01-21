@@ -1,15 +1,14 @@
-# This It tells your simulator (ModelSim / VCS...) which files to compile,
-# and where to look for include directories.
+# File list for rv_dmem_wrap simulation
+# This tests the data memory wrapper module
 
-# where to look for "include" directories
+# Include directories
 +incdir+source/common
-+incdir+source/d_mem
-+incdir+verif/d_mem
-+incdir+verif/wrap_mem
++incdir+source/cpu
 
-
-# Source files - this is the list of files to compile
+# Source files - compile in order (dependencies first)
 source/common/dff_macros.svh
-source/d_mem/d_mem.sv
-source/wrap_mem/wrap_mem.sv
+source/common/rv_mem.sv
+source/cpu/rv_dmem_wrap.sv
+
+# Testbench
 verif/wrap_mem/wrap_mem_tb.sv

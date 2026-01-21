@@ -32,9 +32,9 @@ module rv_memory_tb;
   logic [31:0] dmem_rd_data_Q104H;
 
   // ============================
-  // DUT instantiation
+  // DUT instantiation (rv_mem_wrap)
   // ============================
-  rv_memory #(
+  rv_mem_wrap #(
     .IMEM_SIZE_WORDS(IMEM_SIZE_WORDS),
     .DMEM_SIZE_BYTES(DMEM_SIZE_BYTES)
   ) dut (
@@ -54,7 +54,7 @@ module rv_memory_tb;
   );
 
   // ==========================================================
-  // FIXED: Hierarchy Check
+  // Test sequence
   // ==========================================================
   initial begin
     rst = 1;
@@ -67,7 +67,7 @@ module rv_memory_tb;
     dmem_is_signed_Q103H = 0;
 
     // Load instruction memory via hierarchy: 
-    // memory (dut) -> mem (i_mem) -> array (mem)
+    // rv_mem_wrap (dut) -> rv_mem (i_mem) -> array (mem)
     $display("TB: Loading instruction memory into i_mem.mem array");
     $readmemh("verif/rv_memory/inst_mem.hex", dut.i_mem.mem);
 
@@ -87,7 +87,7 @@ module rv_memory_tb;
 
     // ============================
     // Data memory write (D_MEM)
-    // Hierarchy: memory (dut) -> wrap_mem (d_mem) -> mem (mem_array) -> array (mem)
+    // Hierarchy: rv_mem_wrap (dut) -> rv_dmem_wrap (u_dmem_wrap) -> rv_mem (u_dmem) -> array (mem)
     // ============================
     $display("TB: Writing to D_MEM at address 0x10");
     @(posedge clk);
@@ -104,7 +104,7 @@ module rv_memory_tb;
     @(posedge clk);
     alu_out_Q103H = 32'h00000010;
 
-    // Wait one more cycle because memory/wrapper has a register
+    // Wait one more cycle because memory has synchronous read
     @(posedge clk); 
     $display("T=%0t | D_MEM READ DATA = 0x%08h", $time, dmem_rd_data_Q104H);
 

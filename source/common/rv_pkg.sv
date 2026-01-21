@@ -1,4 +1,4 @@
-package pkg;
+package rv_pkg; 
 
 //-----------------------------------------------
 // Instruction Fetch stage (Q100H/Q101H stage)
@@ -127,6 +127,7 @@ package pkg;
         logic               dmem_wr_en_Q103H;    // memory write enable
         logic               dmem_rd_en_Q103H;    // memory read enable
         logic [3:0]         dmem_byte_en_Q103H;  // memory byte enable
+        logic               dmem_sign_ext_Q103H; // sign extend for load
     } t_ma_ctrl;
 
     // Core to memory request
@@ -136,6 +137,7 @@ package pkg;
         logic               wr_en;             // write enable
         logic               rd_en;             // read enable
         logic [3:0]         byte_en;           // byte enable
+        logic               is_signed;         // sign extend for load
     } t_core2mem_req;
 
 

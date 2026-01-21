@@ -1,7 +1,7 @@
 `include "dff_macros.svh"
 
 module rv_ctrl
-    import pkg::*;
+    import rv_pkg::*;
 (
     input  logic         clk,
     input  logic         rst,
@@ -164,6 +164,7 @@ module rv_ctrl
     assign ma_ctrl.dmem_wr_en_Q103H    = ctrl_Q103H.dmem_wr_en;
     assign ma_ctrl.dmem_rd_en_Q103H    = ctrl_Q103H.dmem_rd_en;
     assign ma_ctrl.dmem_byte_en_Q103H  = ctrl_Q103H.dmem_byte_en;
+    assign ma_ctrl.dmem_sign_ext_Q103H = ctrl_Q103H.dmem_sign_ext;
 
     // ---------------------------------------------------------------------
     // WB stage control outputs (Q104H view)

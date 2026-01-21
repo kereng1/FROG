@@ -3,22 +3,26 @@
 module wrap_mem_tb;
 
     logic clk;
-    logic [31:0] addr;
-    logic [31:0] wr_data;
-    logic wr_en;
-    logic [3:0] byte_en;
-    logic is_signed;
-    logic [31:0] rd_data;
+    
+    // Q103H inputs
+    logic [31:0] addr_Q103H;
+    logic [31:0] wr_data_Q103H;
+    logic        wr_en_Q103H;
+    logic [3:0]  byte_en_Q103H;
+    logic        is_signed_Q103H;
+    
+    // Q104H output
+    logic [31:0] rd_data_Q104H;
 
-    // Instantiate wrap_mem
-    wrap_mem #(.MEM_SIZE_WORDS(16)) uut (
-        .clk(clk),
-        .addr(addr),
-        .wr_data(wr_data),
-        .wr_en(wr_en),
-        .byte_en(byte_en),
-        .is_signed(is_signed),
-        .rd_data(rd_data)
+    // Instantiate rv_dmem_wrap (renamed from wrap_mem)
+    rv_dmem_wrap #(.MEM_SIZE_BYTES(64)) uut (
+        .clk            (clk),
+        .addr_Q103H     (addr_Q103H),
+        .wr_data_Q103H  (wr_data_Q103H),
+        .wr_en_Q103H    (wr_en_Q103H),
+        .byte_en_Q103H  (byte_en_Q103H),
+        .is_signed_Q103H(is_signed_Q103H),
+        .rd_data_Q104H  (rd_data_Q104H)
     );
 
     // Clock
@@ -29,39 +33,49 @@ module wrap_mem_tb;
     task write_mem(input [31:0] a, input [31:0] d, input [3:0] be);
         begin
             @(negedge clk);
-            addr = a;
-            wr_data = d;
-            byte_en = be;
-            wr_en = 1;
+            addr_Q103H = a;
+            wr_data_Q103H = d;
+            byte_en_Q103H = be;
+            wr_en_Q103H = 1;
             @(negedge clk);
-            wr_en = 0;
-            $display("WRITE | addr=%b | byte_en=%b | wr_data=%b", addr, byte_en, wr_data);
+            wr_en_Q103H = 0;
+            $display("WRITE | addr=%b | byte_en=%b | wr_data=%b", addr_Q103H, byte_en_Q103H, wr_data_Q103H);
         end
     endtask
 
-    // Task to read memory
+    // Task to read memory (note: rd_data comes out in Q104H, one cycle later)
     task read_mem(input [31:0] a, input [3:0] be, input signed_flag);
         begin
             @(negedge clk);
-            addr = a;
-            byte_en = be;
-            is_signed = signed_flag;
-            wr_en = 0;
-            @(negedge clk);
-            $display("READ  | addr=%b | byte_en=%b | signed=%b | rd_data=%b", addr, byte_en, is_signed, rd_data);
+            addr_Q103H = a;
+            byte_en_Q103H = be;
+            is_signed_Q103H = signed_flag;
+            wr_en_Q103H = 0;
+            @(negedge clk); // Wait for Q103H -> Q104H
+            @(negedge clk); // Data available in Q104H
+            $display("READ  | addr=%b | byte_en=%b | signed=%b | rd_data=%b", a, be, signed_flag, rd_data_Q104H);
         end
     endtask
 
     initial begin
-        $display("Starting wrap_mem test...");
+        $display("Starting rv_dmem_wrap test...");
+        
+        // Initialize
+        addr_Q103H = 0;
+        wr_data_Q103H = 0;
+        wr_en_Q103H = 0;
+        byte_en_Q103H = 4'b1111;
+        is_signed_Q103H = 0;
+        
+        #20; // Wait for initial settling
 
         // Example 1: Write a full word to addr=0
         write_mem(0, 32'b11110000111100001111000011110000, 4'b1111);
         read_mem(0, 4'b1111, 0);
 
-        // Example 2: Write halfword to addr=1 (offset 1)
-        write_mem(1, 32'b1010101010101010, 4'b0011);
-        read_mem(1, 4'b0011, 0);
+        // Example 2: Write halfword to addr=2 (offset 2 within word 0)
+        write_mem(2, 32'b1010101010101010, 4'b0011);
+        read_mem(2, 4'b0011, 0);
 
         // Example 3: Write byte to addr=5
         write_mem(5, 32'b11001100, 4'b0001);
@@ -84,7 +98,7 @@ module wrap_mem_tb;
         write_mem(2, 32'b1111000011110000, 4'b0011);
         read_mem(2, 4'b0011, 1); // signed example
 
-        $display("wrap_mem test finished.");
+        $display("rv_dmem_wrap test finished.");
         $stop;
     end
 

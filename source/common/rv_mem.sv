@@ -11,7 +11,7 @@
 
 `include "source/common/dff_macros.svh"
 
-module mem #(
+module rv_mem #(
     parameter MEM_SIZE_WORDS = 256 
 )(
     input  logic         clk,
@@ -63,12 +63,16 @@ module mem #(
     // -----------------------
     // Read Logic (with byte enable)
     // -----------------------
+    logic [31:0] pre_rd_data;
+
     always_comb begin
-        rd_data = 32'b0; // default: all zeros
-        if (byte_en[0]) rd_data[7:0]   = mem[addr][7:0];
-        if (byte_en[1]) rd_data[15:8]  = mem[addr][15:8];
-        if (byte_en[2]) rd_data[23:16] = mem[addr][23:16];
-        if (byte_en[3]) rd_data[31:24] = mem[addr][31:24];
+        pre_rd_data = 32'b0; // default: all zeros
+        if (byte_en[0]) pre_rd_data[7:0]   = mem[addr][7:0];
+        if (byte_en[1]) pre_rd_data[15:8]  = mem[addr][15:8];
+        if (byte_en[2]) pre_rd_data[23:16] = mem[addr][23:16];
+        if (byte_en[3]) pre_rd_data[31:24] = mem[addr][31:24];
     end
+
+    `DFF(rd_data, pre_rd_data, clk)
 
 endmodule
