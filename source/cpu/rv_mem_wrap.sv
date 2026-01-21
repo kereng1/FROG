@@ -34,7 +34,6 @@ module rv_mem_wrap #(
     // =========================================================================
     // Instruction Memory
     // =========================================================================
-    logic [31:0] imem_rd_data_Q100H;
 
     // Instruction memory uses word-based depth parameter
     rv_mem #(

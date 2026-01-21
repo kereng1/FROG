@@ -23,11 +23,12 @@ module rv_ma
 logic [31:0] wb_data_Q103H;
 
 // Output core2mem_request signal
-assign core2dmem_req_Q103H.wr_data  = dmem_wr_data_Q103H;
-assign core2dmem_req_Q103H.address  = alu_out_Q103H;
-assign core2dmem_req_Q103H.wr_en    = ctrl.dmem_wr_en_Q103H;
-assign core2dmem_req_Q103H.rd_en    = ctrl.dmem_rd_en_Q103H;
-assign core2dmem_req_Q103H.byte_en  = ctrl.dmem_byte_en_Q103H;
+assign core2dmem_req_Q103H.wr_data   = dmem_wr_data_Q103H;
+assign core2dmem_req_Q103H.address   = alu_out_Q103H;
+assign core2dmem_req_Q103H.wr_en     = ctrl.dmem_wr_en_Q103H;
+assign core2dmem_req_Q103H.rd_en     = ctrl.dmem_rd_en_Q103H;
+assign core2dmem_req_Q103H.byte_en   = ctrl.dmem_byte_en_Q103H;
+assign core2dmem_req_Q103H.is_signed = ctrl.dmem_sign_ext_Q103H;
 
 // mux for the write back data 
 assign wb_data_Q103H = (ctrl.sel_wb_Q103H == SEL_PC_PLUS4) ? pc_plus4_Q103H : 

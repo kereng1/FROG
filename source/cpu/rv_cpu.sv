@@ -17,15 +17,7 @@ module rv_cpu
     import rv_pkg::*;
 (
     input  logic        clk,
-    input  logic        rst,
-    
-    // Instruction Memory Interface
-    output logic [31:0] imem_addr,          // PC to instruction memory
-    input  logic [31:0] imem_rd_data,       // Instruction from memory
-    
-    // Data Memory Interface
-    output t_core2mem_req core2dmem_req,    // Core request to data memory
-    input  logic [31:0]   dmem_rd_data      // Read data from data memory
+    input  logic        rst
 );
 
 //----------------------------------------------------------
@@ -58,6 +50,7 @@ logic [31:0] dmem_wr_data_Q103H;
 
 // MA stage signals
 logic [31:0] pre_wb_data_Q104H;
+t_core2mem_req core2dmem_req_Q103H;
 
 // WB stage signals
 logic [31:0] wb_data_Q104H;
@@ -65,8 +58,13 @@ logic [31:0] wb_data_Q104H;
 // Pipeline signal for dmem read data (Q104H)
 logic [31:0] dmem_rd_data_Q104H;
 
-// Instruction available at Q101H (1 cycle after PC is sent)
+// Instruction available at Q101H (from memory)
 logic [31:0] instruction_Q101H;
+
+//----------------------------------------------------------
+// Tap ALU output before pipeline register for branch target
+//----------------------------------------------------------
+assign alu_out_Q102H = u_rv_exe.alu_out_Q102H;
 
 //----------------------------------------------------------
 // Module Instantiations
@@ -128,7 +126,6 @@ rv_exe u_rv_exe (
     .dmem_wr_data_Q103H     (dmem_wr_data_Q103H)
 );
 
-
 // Memory Access Stage (Q103H)
 rv_ma u_rv_ma (
     .clk                (clk),
@@ -137,7 +134,7 @@ rv_ma u_rv_ma (
     .pc_plus4_Q103H     (pc_plus4_Q103H),
     .alu_out_Q103H      (alu_out_Q103H),
     .dmem_wr_data_Q103H (dmem_wr_data_Q103H),
-    .core2dmem_req_Q103H(core2dmem_req),
+    .core2dmem_req_Q103H(core2dmem_req_Q103H),
     .pre_wb_data_Q104H  (pre_wb_data_Q104H)
 );
 
@@ -151,14 +148,21 @@ rv_wb u_rv_wb (
     .wb_data_Q104H      (wb_data_Q104H)
 );
 
-// rv_mem_wrap module
+// Unified Memory Module (Instruction + Data Memory)
 rv_mem_wrap u_rv_mem_wrap (
-    .clk                (clk),
-    .rst                (rst),
-    .alu_out_Q103H      (alu_out_Q103H),
-    .dmem_wr_data_Q103H (dmem_wr_data_Q103H),
-    .dmem_wr_en_Q103H   (core2dmem_req.wr_en),
-    .dmem_byte_en_Q103H (core2dmem_req.byte_en),
-    .dmem_is_signed_Q103H (core2dmem_req.is_signed),
-endmodule
+    .clk                  (clk),
+    .rst                  (rst),
+    // Instruction Memory Interface
+    .pc_Q100H             (pc_Q100H),
+    .ready_Q101H          (if_ctrl.ready_Q101H),
+    .instruction_Q101H    (instruction_Q101H),
+    // Data Memory Interface
+    .alu_out_Q103H        (alu_out_Q103H),
+    .dmem_wr_data_Q103H   (dmem_wr_data_Q103H),
+    .dmem_wr_en_Q103H     (core2dmem_req_Q103H.wr_en),
+    .dmem_byte_en_Q103H   (core2dmem_req_Q103H.byte_en),
+    .dmem_is_signed_Q103H (core2dmem_req_Q103H.is_signed),
+    .dmem_rd_data_Q104H   (dmem_rd_data_Q104H)
+);
 
+endmodule
