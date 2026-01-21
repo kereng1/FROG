@@ -1,7 +1,7 @@
 `include "dff_macros.svh"
 
 module rv_ctrl
-    import pkg::*;
+    import rv_pkg::*;
 (
     input  logic         clk,
     input  logic         rst,

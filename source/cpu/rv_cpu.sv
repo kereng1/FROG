@@ -14,7 +14,7 @@
 `include "dff_macros.svh"
 
 module rv_cpu
-    import pkg::*;
+    import rv_pkg::*;
 (
     input  logic        clk,
     input  logic        rst,
@@ -65,19 +65,8 @@ logic [31:0] wb_data_Q104H;
 // Pipeline signal for dmem read data (Q104H)
 logic [31:0] dmem_rd_data_Q104H;
 
-//----------------------------------------------------------
-// Instruction Memory Interface
-//----------------------------------------------------------
-assign imem_addr = pc_Q100H;
-
 // Instruction available at Q101H (1 cycle after PC is sent)
 logic [31:0] instruction_Q101H;
-assign instruction_Q101H = imem_rd_data;
-
-//----------------------------------------------------------
-// Data Memory Read Pipeline Register (Q103H -> Q104H)
-//----------------------------------------------------------
-`DFF_EN(dmem_rd_data_Q104H, dmem_rd_data, clk, ma_ctrl.ready_Q103H)
 
 //----------------------------------------------------------
 // Module Instantiations
@@ -139,8 +128,6 @@ rv_exe u_rv_exe (
     .dmem_wr_data_Q103H     (dmem_wr_data_Q103H)
 );
 
-// Tap ALU output before pipeline register for branch target
-assign alu_out_Q102H = u_rv_exe.alu_out_Q102H;
 
 // Memory Access Stage (Q103H)
 rv_ma u_rv_ma (
@@ -164,5 +151,14 @@ rv_wb u_rv_wb (
     .wb_data_Q104H      (wb_data_Q104H)
 );
 
+// rv_mem_wrap module
+rv_mem_wrap u_rv_mem_wrap (
+    .clk                (clk),
+    .rst                (rst),
+    .alu_out_Q103H      (alu_out_Q103H),
+    .dmem_wr_data_Q103H (dmem_wr_data_Q103H),
+    .dmem_wr_en_Q103H   (core2dmem_req.wr_en),
+    .dmem_byte_en_Q103H (core2dmem_req.byte_en),
+    .dmem_is_signed_Q103H (core2dmem_req.is_signed),
 endmodule
 

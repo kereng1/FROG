@@ -5,7 +5,7 @@
 
 `include "source/common/dff_macros.svh"
 
-module rv_memory #(
+module rv_mem_wrap #(
     parameter IMEM_SIZE_WORDS = 256,
     parameter DMEM_SIZE_BYTES = 1024
 )(
@@ -22,7 +22,7 @@ module rv_memory #(
     // ============================
     // Data Memory (EXE → MEM → WB)
     // ============================
-    input  logic [31:0] alu_out_Q103H,        // byte address
+    input  logic [31:0] alu_out_Q103H,        // byte address to do -remane to dmem_addr_Q103H
     input  logic [31:0] dmem_wr_data_Q103H,
     input  logic        dmem_wr_en_Q103H,
     input  logic [3:0]  dmem_byte_en_Q103H,
@@ -37,7 +37,7 @@ module rv_memory #(
     logic [31:0] imem_rd_data_Q100H;
 
     // Instruction memory uses word-based depth parameter
-    mem #(
+    rv_mem #(
         .MEM_SIZE_WORDS(IMEM_SIZE_WORDS)
     ) i_mem (
         .clk     (clk),
@@ -45,43 +45,26 @@ module rv_memory #(
         .wr_en   (1'b0),             // instruction memory is read-only
         .wr_data (32'b0),
         .byte_en (4'b1111),
-        .rd_data (imem_rd_data_Q100H)
+        .rd_data (instruction_Q101H)
     );
 
-    // Pipeline register IF → ID
-    `DFF_RST_EN(
-        instruction_Q101H,
-        imem_rd_data_Q100H,
-        clk,
-        ready_Q101H,
-        rst,
-        32'h00000013   // NOP
-    )
 
     // =========================================================================
     // Data Memory (MEM stage)
     // =========================================================================
-    logic [31:0] dmem_rd_data_Q103H;
 
-    // wrap_mem still exists and still wraps mem internally
-    wrap_mem #(
+    // rv_dmem_wrap wraps rv_mem internally
+    // Input signals are Q103H, output rd_data is Q104H (synchronous read)
+    rv_dmem_wrap #(
         .MEM_SIZE_BYTES(DMEM_SIZE_BYTES)
-    ) d_mem (
-        .clk       (clk),
-        .addr      (alu_out_Q103H),
-        .wr_data   (dmem_wr_data_Q103H),
-        .wr_en     (dmem_wr_en_Q103H),
-        .is_signed (dmem_is_signed_Q103H),
-        .byte_en   (dmem_byte_en_Q103H),
-        .rd_data   (dmem_rd_data_Q103H)
+    ) u_dmem_wrap (
+        .clk            (clk),
+        .addr_Q103H     (alu_out_Q103H),
+        .wr_data_Q103H  (dmem_wr_data_Q103H),
+        .wr_en_Q103H    (dmem_wr_en_Q103H),
+        .is_signed_Q103H(dmem_is_signed_Q103H),
+        .byte_en_Q103H  (dmem_byte_en_Q103H),
+        .rd_data_Q104H  (dmem_rd_data_Q104H)
     );
-
-    // Pipeline register MEM → WB
-    `DFF_EN(
-        dmem_rd_data_Q104H,
-        dmem_rd_data_Q103H,
-        clk,
-        1'b1
-    )
 
 endmodule

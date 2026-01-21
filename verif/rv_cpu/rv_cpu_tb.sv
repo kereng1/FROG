@@ -8,7 +8,7 @@
 `timescale 1ns/1ps
 
 module rv_cpu_tb;
-    import pkg::*;
+    import rv_pkg::*;
 
     //----------------------------------------------------------
     // Parameters
@@ -44,10 +44,9 @@ module rv_cpu_tb;
     );
     
     //----------------------------------------------------------
-    // FIXED: Using YOUR Unified Memory Module 
-    // This replaces 'simple_imem' and the standalone 'wrap_mem'
+    // Unified memory module (instruction + data)
     //----------------------------------------------------------
-    memory #(
+    rv_mem_wrap #(
         .IMEM_SIZE_WORDS(IMEM_SIZE_WORDS),
         .DMEM_SIZE_BYTES(DMEM_SIZE_BYTES)
     ) u_unified_mem (
@@ -83,8 +82,7 @@ module rv_cpu_tb;
     end
 
     //----------------------------------------------------------
-    // FIXED XMR: Load your memory module using readmemh
-    // Pointing directly to the memory array inside your module
+    // Load the program into instruction memory via XMR
     //----------------------------------------------------------
     initial begin
         // 1. First, clear memory or fill with NOPs (optional but recommended)
@@ -93,8 +91,8 @@ module rv_cpu_tb;
         end
 
         // 2. Load the program from the HEX file using XMR
-        $display("TB: Loading program from verif/memory/inst_mem.hex into IMEM");
-        $readmemh("verif/rv_cpu_tb/inst_mem.hex", u_unified_mem.i_mem.mem);
+        $display("TB: Loading program from verif/rv_cpu/inst_mem.hex into IMEM");
+        $readmemh("verif/rv_cpu/inst_mem.hex", u_unified_mem.i_mem.mem);
     end
 
     //----------------------------------------------------------

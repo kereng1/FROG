@@ -6,7 +6,7 @@
 `include "dff_macros.svh"
 
 module rv_ma
-    import pkg::*;
+    import rv_pkg::*;
 (
     input logic clk,
     input logic rst,
