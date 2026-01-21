@@ -7,8 +7,6 @@
 # Source files
 source/common/dff_macros.svh
 source/d_mem/d_mem.sv
-source/d_mem/wrap_mem.sv
 verif/d_mem/d_mem_tb.sv
-verif/d_mem/wrap_mem_tb.sv
 
 
