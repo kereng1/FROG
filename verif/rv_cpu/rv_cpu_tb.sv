@@ -24,7 +24,11 @@ module rv_cpu_tb;
     logic clk;
     logic rst;
 
-    int log_fd;
+    int log_if;
+    int log_id;
+    int log_exe;
+    int log_mem;
+    int log_wb;
     int cycle_count;
 
     //----------------------------------------------------------
@@ -65,45 +69,39 @@ module rv_cpu_tb;
     end
 
     //----------------------------------------------------------
-    // Trackers (console + log file)
+    // Trackers
     //----------------------------------------------------------
-    initial begin
-        log_fd = $fopen("target/rv_cpu/logs/rv_cpu_trace.log", "w");
-        cycle_count = 0;
-    end
+    `include "verif/rv_cpu/trks/trk_if.vh"
+    `include "verif/rv_cpu/trks/trk_decode.vh"
+    `include "verif/rv_cpu/trks/trk_exe.vh"
+    // Pipeline for Instruction Names to keep trackers synced
+    string name_Q101H, name_Q102H, name_Q103H, name_Q104H;
 
     always @(posedge clk) begin
-        if (!rst) begin
-            $fdisplay(log_fd,
-                "T=%0t C=%0d | PC=0x%08h NextPC=0x%08h | Instr=0x%08h Opcode=0x%02h | rs1=x%0d rs2=x%0d rd=x%0d | Reg1=%0d Reg2=%0d | ALU_in1=%0d ALU_in2=%0d ALU_out=%0d | DMEM_addr=0x%08h wr_en=%b rd_en=%b wr_data=%0d | wb_data=%0d wb_rd=x%0d wb_we=%b | ready_if=%b ready_id=%b ready_ex=%b ready_ma=%b ready_wb=%b",
-                $time, cycle_count,
-                dut.pc_Q100H, dut.u_rv_if.next_pc_Q100H,
-                dut.instruction_Q101H, dut.instruction_Q101H[6:0],
-                dut.decode_ctrl.reg_src1_Q101H, dut.decode_ctrl.reg_src2_Q101H, dut.decode_ctrl.rd_Q101H,
-                dut.u_rv_decode.reg_rd_data1_Q101H, dut.u_rv_decode.reg_rd_data2_Q101H,
-                dut.u_rv_exe.alu_in1_Q102H, dut.u_rv_exe.alu_in2_Q102H, dut.alu_out_Q102H,
-                dut.core2dmem_req_Q103H.address, dut.core2dmem_req_Q103H.wr_en, dut.core2dmem_req_Q103H.rd_en, dut.core2dmem_req_Q103H.wr_data,
-                dut.wb_data_Q104H, dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
-                dut.if_ctrl.ready_Q100H, dut.decode_ctrl.ready_Q102H, dut.exe_ctrl.ready_Q102H,
-                dut.ma_ctrl.ready_Q103H, dut.wb_ctrl.ready_Q104H
-            );
-
-            $display(
-                "C=%0d PC=0x%08h Instr=0x%08h ALU_out=%0d wb_rd=x%0d wb_we=%b",
-                cycle_count, dut.pc_Q100H, dut.instruction_Q101H, dut.alu_out_Q102H,
-                dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H
-            );
-
-            cycle_count++;
+        if (rst) begin
+            name_Q101H <= "NOP";
+            name_Q102H <= "NOP";
+            name_Q103H <= "NOP";
+            name_Q104H <= "NOP";
+        end else begin
+            name_Q101H <= inst_name; // inst_name is the current decode result
+            name_Q102H <= name_Q101H;
+            name_Q103H <= name_Q102H;
+            name_Q104H <= name_Q103H;
         end
     end
-
+    `include "verif/rv_cpu/trks/trk_mem.vh"
+    `include "verif/rv_cpu/trks/trk_wb.vh"
     //----------------------------------------------------------
     // End simulation
     //----------------------------------------------------------
     initial begin
         #2000;
-        $fclose(log_fd);
+        if (log_if != 0) $fclose(log_if);
+        if (log_id != 0) $fclose(log_id);
+        if (log_exe != 0) $fclose(log_exe);
+        if (log_mem != 0) $fclose(log_mem);
+        if (log_wb != 0) $fclose(log_wb);
         $finish;
     end
 
