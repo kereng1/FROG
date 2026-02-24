@@ -28,6 +28,90 @@ module rv_cpu_tb;
     int cycle_count;
 
     //----------------------------------------------------------
+    // Instruction Decoder Function - returns mnemonic string
+    //----------------------------------------------------------
+    function string decode_instr(input logic [31:0] instr);
+        logic [6:0] opcode;
+        logic [2:0] funct3;
+        logic [6:0] funct7;
+        logic [4:0] rd, rs1, rs2;
+        
+        opcode = instr[6:0];
+        rd     = instr[11:7];
+        funct3 = instr[14:12];
+        rs1    = instr[19:15];
+        rs2    = instr[24:20];
+        funct7 = instr[31:25];
+        
+        case (opcode)
+            7'b0110011: begin // R-type
+                case ({funct7, funct3})
+                    {7'b0000000, 3'b000}: return "ADD";
+                    {7'b0100000, 3'b000}: return "SUB";
+                    {7'b0000000, 3'b001}: return "SLL";
+                    {7'b0000000, 3'b010}: return "SLT";
+                    {7'b0000000, 3'b011}: return "SLTU";
+                    {7'b0000000, 3'b100}: return "XOR";
+                    {7'b0000000, 3'b101}: return "SRL";
+                    {7'b0100000, 3'b101}: return "SRA";
+                    {7'b0000000, 3'b110}: return "OR";
+                    {7'b0000000, 3'b111}: return "AND";
+                    default:              return "R-???";
+                endcase
+            end
+            7'b0010011: begin // I-type ALU
+                case (funct3)
+                    3'b000: return "ADDI";
+                    3'b010: return "SLTI";
+                    3'b011: return "SLTIU";
+                    3'b100: return "XORI";
+                    3'b110: return "ORI";
+                    3'b111: return "ANDI";
+                    3'b001: return "SLLI";
+                    3'b101: return (funct7 == 7'b0100000) ? "SRAI" : "SRLI";
+                    default: return "I-???";
+                endcase
+            end
+            7'b0000011: begin // Load
+                case (funct3)
+                    3'b000: return "LB";
+                    3'b001: return "LH";
+                    3'b010: return "LW";
+                    3'b100: return "LBU";
+                    3'b101: return "LHU";
+                    default: return "L-???";
+                endcase
+            end
+            7'b0100011: begin // Store
+                case (funct3)
+                    3'b000: return "SB";
+                    3'b001: return "SH";
+                    3'b010: return "SW";
+                    default: return "S-???";
+                endcase
+            end
+            7'b1100011: begin // Branch
+                case (funct3)
+                    3'b000: return "BEQ";
+                    3'b001: return "BNE";
+                    3'b100: return "BLT";
+                    3'b101: return "BGE";
+                    3'b110: return "BLTU";
+                    3'b111: return "BGEU";
+                    default: return "B-???";
+                endcase
+            end
+            7'b1101111: return "JAL";
+            7'b1100111: return "JALR";
+            7'b0110111: return "LUI";
+            7'b0010111: return "AUIPC";
+            7'b1110011: return "SYSTEM";
+            7'b0001111: return "FENCE";
+            default:    return (instr == 32'h00000013) ? "NOP" : "???";
+        endcase
+    endfunction
+
+    //----------------------------------------------------------
     // DUT - rv_cpu now has internal memory
     //----------------------------------------------------------
     rv_cpu dut (
@@ -89,8 +173,9 @@ module rv_cpu_tb;
             );
 
             $display(
-                "C=%0d PC=0x%08h Instr=0x%08h ALU_out=%0d wb_rd=x%0d wb_we=%b",
-                cycle_count, dut.pc_Q100H, dut.instruction_Q101H, dut.alu_out_Q102H,
+                "C=%3d | PC=0x%03h | %-6s | ALU_in1=%-11d ALU_in2=%-11d ALU_out=%-11d | wb_rd=x%-2d wb_we=%b",
+                cycle_count, dut.pc_Q100H[11:0], decode_instr(dut.instruction_Q101H),
+                $signed(dut.u_rv_exe.alu_in1_Q102H), $signed(dut.u_rv_exe.alu_in2_Q102H), $signed(dut.alu_out_Q102H),
                 dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H
             );
 
