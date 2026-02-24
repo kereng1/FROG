@@ -67,7 +67,8 @@ package rv_pkg;
         ALU_SRA  = 4'b1101,
         ALU_XOR  = 4'b0100,
         ALU_OR   = 4'b0110,
-        ALU_AND  = 4'b0111
+        ALU_AND  = 4'b0111,
+        ALU_PASS_B = 4'b1111  // Pass input B through (for LUI)
     } t_alu_op;
 
     // Branch condition operation type
@@ -78,7 +79,8 @@ package rv_pkg;
         BRANCH_COND_BLT  = 3'b011,
         BRANCH_COND_BGE  = 3'b100,
         BRANCH_COND_BLTU = 3'b101,
-        BRANCH_COND_BGEU = 3'b110
+        BRANCH_COND_BGEU = 3'b110,
+        BRANCH_COND_ALWAYS = 3'b111  // For JAL/JALR (unconditional)
     } t_branch_cond_op;
 
     // ALU in the exe input select type
@@ -106,6 +108,7 @@ package rv_pkg;
         t_alu_in2_sel       sel_alu_in2_Q102H;      // ALU input 2 select (SEL_REG_DATA or SEL_IMM)
         t_alu_op            alu_op;                 // ALU operation
         t_branch_cond_op    branch_cond_op;         // Branch condition operation
+        logic               is_load_Q103H;          // Load instruction in Q103H (for load-use hazard)
     } t_exe_ctrl;
 
 
@@ -164,6 +167,9 @@ package rv_pkg;
         logic               dmem_rd_en;
         logic               reg_write_en;
         logic               is_load;
+        logic               is_branch;          // Branch instruction flag
+        logic               is_jump;            // Jump instruction (JAL/JALR)
+        logic               is_jalr;            // JALR needs special handling (mask LSB)
         logic               uses_rs1;
         logic               uses_rs2;
         logic [4:0]         rd;

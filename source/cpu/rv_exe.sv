@@ -66,30 +66,32 @@ assign pc_plus4_Q102H = pc_Q102H + 32'd4;
 
 always_comb begin
     case (ctrl.alu_op)
-        ALU_ADD: alu_out_Q102H = alu_in1_Q102H + alu_in2_Q102H;
-        ALU_SUB: alu_out_Q102H = alu_in1_Q102H - alu_in2_Q102H;
-        ALU_SLT: alu_out_Q102H = ($signed(alu_in1_Q102H) < $signed(alu_in2_Q102H));
-        ALU_SLTU: alu_out_Q102H = (alu_in1_Q102H < alu_in2_Q102H);
-        ALU_SLL: alu_out_Q102H = alu_in1_Q102H << alu_in2_Q102H[4:0];
-        ALU_SRL: alu_out_Q102H = alu_in1_Q102H >> alu_in2_Q102H[4:0];
-        ALU_SRA: alu_out_Q102H = $signed(alu_in1_Q102H) >>> alu_in2_Q102H[4:0];
-        ALU_XOR: alu_out_Q102H = alu_in1_Q102H ^ alu_in2_Q102H;
-        ALU_OR: alu_out_Q102H = alu_in1_Q102H | alu_in2_Q102H;
-        ALU_AND: alu_out_Q102H = alu_in1_Q102H & alu_in2_Q102H;
-        default: alu_out_Q102H = 32'b0;   
+        ALU_ADD:    alu_out_Q102H = alu_in1_Q102H + alu_in2_Q102H;
+        ALU_SUB:    alu_out_Q102H = alu_in1_Q102H - alu_in2_Q102H;
+        ALU_SLT:    alu_out_Q102H = ($signed(alu_in1_Q102H) < $signed(alu_in2_Q102H)) ? 32'd1 : 32'd0;
+        ALU_SLTU:   alu_out_Q102H = (alu_in1_Q102H < alu_in2_Q102H) ? 32'd1 : 32'd0;
+        ALU_SLL:    alu_out_Q102H = alu_in1_Q102H << alu_in2_Q102H[4:0];
+        ALU_SRL:    alu_out_Q102H = alu_in1_Q102H >> alu_in2_Q102H[4:0];
+        ALU_SRA:    alu_out_Q102H = $signed(alu_in1_Q102H) >>> alu_in2_Q102H[4:0];
+        ALU_XOR:    alu_out_Q102H = alu_in1_Q102H ^ alu_in2_Q102H;
+        ALU_OR:     alu_out_Q102H = alu_in1_Q102H | alu_in2_Q102H;
+        ALU_AND:    alu_out_Q102H = alu_in1_Q102H & alu_in2_Q102H;
+        ALU_PASS_B: alu_out_Q102H = alu_in2_Q102H;  // Pass through input B (for LUI)
+        default:    alu_out_Q102H = 32'b0;   
     endcase
 end
 
 // branch condition
 always_comb begin
     case (ctrl.branch_cond_op)
-        BRANCH_COND_BEQ: branch_cond_met_Q102H = (post_reg_data1_Q102H == post_reg_data2_Q102H);
-        BRANCH_COND_BNE: branch_cond_met_Q102H = (post_reg_data1_Q102H != post_reg_data2_Q102H);
-        BRANCH_COND_BLT: branch_cond_met_Q102H = ($signed(post_reg_data1_Q102H) < $signed(post_reg_data2_Q102H));
-        BRANCH_COND_BGE: branch_cond_met_Q102H = ($signed(post_reg_data1_Q102H) >= $signed(post_reg_data2_Q102H));
-        BRANCH_COND_BLTU: branch_cond_met_Q102H = (post_reg_data1_Q102H < post_reg_data2_Q102H);
-        BRANCH_COND_BGEU: branch_cond_met_Q102H = (post_reg_data1_Q102H >= post_reg_data2_Q102H);
-        default:          branch_cond_met_Q102H = 1'b0; // no branch
+        BRANCH_COND_BEQ:    branch_cond_met_Q102H = (post_reg_data1_Q102H == post_reg_data2_Q102H);
+        BRANCH_COND_BNE:    branch_cond_met_Q102H = (post_reg_data1_Q102H != post_reg_data2_Q102H);
+        BRANCH_COND_BLT:    branch_cond_met_Q102H = ($signed(post_reg_data1_Q102H) < $signed(post_reg_data2_Q102H));
+        BRANCH_COND_BGE:    branch_cond_met_Q102H = ($signed(post_reg_data1_Q102H) >= $signed(post_reg_data2_Q102H));
+        BRANCH_COND_BLTU:   branch_cond_met_Q102H = (post_reg_data1_Q102H < post_reg_data2_Q102H);
+        BRANCH_COND_BGEU:   branch_cond_met_Q102H = (post_reg_data1_Q102H >= post_reg_data2_Q102H);
+        BRANCH_COND_ALWAYS: branch_cond_met_Q102H = 1'b1; // JAL/JALR - always taken
+        default:            branch_cond_met_Q102H = 1'b0; // no branch
     endcase
 end
 
