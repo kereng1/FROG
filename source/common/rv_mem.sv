@@ -1,12 +1,12 @@
 // ========================================================================
 // D_MEM
 // ========================================================================
-// Low-level 32-bit memory array
+// Low-level byte-addressable memory array
 // Handles byte-enable writes and reads
 // Implements a synchronous memory with D flip-flops macro
 //
 // Parameters:
-//   MEM_SIZE_WORDS : Number of 32-bit words
+//   MEM_SIZE_WORDS : Number of 32-bit words (total bytes = MEM_SIZE_WORDS * 4)
 
 
 `include "source/common/dff_macros.svh"
@@ -22,36 +22,31 @@ module rv_mem #(
     output logic [31:0]  rd_data   
 );
 
+    localparam MEM_SIZE_BYTES = MEM_SIZE_WORDS * 4;
+
     //----------------------------------------
-    // Internal memory arrays
+    // Internal memory arrays (byte-organized)
     //----------------------------------------
 
-    logic [31:0] mem      [0:MEM_SIZE_WORDS-1];
-    logic [31:0] next_mem [0:MEM_SIZE_WORDS-1];
+    logic [7:0] mem      [MEM_SIZE_BYTES-1:0];
+    logic [7:0] next_mem [MEM_SIZE_BYTES-1:0];
 
-    logic [31:0] old_word;
-    logic [31:0] new_word;
+    logic [31:0] base_addr;
+    assign base_addr = {addr[29:0], 2'b00};
 
     // -----------------------
     // Write Logic
     // -----------------------
-    // Copy current memory and update only enabled bytes
 
     always_comb begin
-        for (int i = 0; i < MEM_SIZE_WORDS; i++)
+        for (int i = 0; i < MEM_SIZE_BYTES; i++)
             next_mem[i] = mem[i];
 
         if (wr_en) begin
-            old_word = mem[addr];
-            new_word = old_word;
-            
-            // Update only the bytes that are enabled
-            if (byte_en[0]) new_word[7:0]   = wr_data[7:0];
-            if (byte_en[1]) new_word[15:8]  = wr_data[15:8];
-            if (byte_en[2]) new_word[23:16] = wr_data[23:16];
-            if (byte_en[3]) new_word[31:24] = wr_data[31:24];
-
-            next_mem[addr] = new_word;
+            if (byte_en[0]) next_mem[base_addr]     = wr_data[7:0];
+            if (byte_en[1]) next_mem[base_addr + 1]  = wr_data[15:8];
+            if (byte_en[2]) next_mem[base_addr + 2]  = wr_data[23:16];
+            if (byte_en[3]) next_mem[base_addr + 3]  = wr_data[31:24];
         end
     end
     
@@ -66,11 +61,11 @@ module rv_mem #(
     logic [31:0] pre_rd_data;
 
     always_comb begin
-        pre_rd_data = 32'b0; // default: all zeros
-        if (byte_en[0]) pre_rd_data[7:0]   = mem[addr][7:0];
-        if (byte_en[1]) pre_rd_data[15:8]  = mem[addr][15:8];
-        if (byte_en[2]) pre_rd_data[23:16] = mem[addr][23:16];
-        if (byte_en[3]) pre_rd_data[31:24] = mem[addr][31:24];
+        pre_rd_data = 32'b0;
+        if (byte_en[0]) pre_rd_data[7:0]   = mem[base_addr];
+        if (byte_en[1]) pre_rd_data[15:8]  = mem[base_addr + 1];
+        if (byte_en[2]) pre_rd_data[23:16] = mem[base_addr + 2];
+        if (byte_en[3]) pre_rd_data[31:24] = mem[base_addr + 3];
     end
 
     `DFF(rd_data, pre_rd_data, clk)
