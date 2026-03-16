@@ -4,14 +4,14 @@
 //------------------------------------------------------------------------------
 /*
 -------------------------------------------------------------------------------------------
-       ID STAGE TRACKER COLUMN EXPLANATIONS
+       DECODE STAGE TRACKER COLUMN EXPLANATIONS (Q101H Stage)
 -------------------------------------------------------------------------------------------
 1. Cycle      : Clock cycle count.
-2. PC (ID)    : Program Counter of the instruction currently being decoded.
-3. Instr Name : Human-readable instruction name (e.g., ADDI, LW).
-4. rs1/rs2/rd : Indices of source and destination registers (x0-x31).
-5. rs1/2 Data : Values read from the Register File (after internal forwarding).
-6. Immediate  : The sign-extended immediate value calculated from the bits.
+2. PC (ID)    : Program Counter of the instruction currently being decoded (pc_Q101H).
+3. Instr Name : Human-readable instruction name decoded from instruction_Q101H (e.g., ADDI, LW).
+4. rs1/rs2/rd : Indices of source and destination registers from instruction_Q101H (x0-x31).
+5. rs1/2 Data : Values read from the Register File (reg_rd_data1/2_Q101H, after internal forwarding).
+6. Immediate  : The sign-extended immediate value calculated from instruction bits (imm_Q101H).
 7. Fwd Match  : Internal RF Forwarding (rs1/rs2 status).
                 - 1/0: Match on rs1. Data taken directly from WB stage (bypass RF).
                 - 0/1: Match on rs2. Data taken directly from WB stage (bypass RF).

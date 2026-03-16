@@ -1,11 +1,20 @@
 //------------------------------------------------------------------------------
 // Title      : trk_wb
-// Description: Final stage tracker - Monitors data being committed to Register File.
+// Description: Write Back stage tracker (Q104H) - Monitors data being committed to Register File.
 //------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-// Title      : rv_cpu_wb_tracker
-// Description: Final stage tracker - Monitors data being committed to Register File.
-//------------------------------------------------------------------------------
+/*
+-------------------------------------------------------------------------------------------
+       WB STAGE TRACKER COLUMN EXPLANATIONS (Q104H Stage)
+-------------------------------------------------------------------------------------------
+1. Cycle      : Clock cycle count.
+2. Instruction: Pipelined name of the instruction in WB stage (Q104H).
+3. Result (WB): Data value being written back to Register File (wb_data_Q104H).
+4. rd         : Destination register index (wb_ctrl.reg_dst_Q104H).
+5. RegWr      : Register write enable signal (wb_ctrl.reg_write_en_Q104H).
+6. Data Src   : Source of write-back data (FROM_ALU or FROM_MEM).
+7. Status     : COMMITTED if register write occurs, DISCARDED otherwise.
+-------------------------------------------------------------------------------------------
+*/
 
 initial begin
     log_wb = $fopen("target/rv_cpu/logs/trk/trk_wb.log", "w");

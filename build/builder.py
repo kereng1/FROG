@@ -293,6 +293,12 @@ def main():
         if getattr(args, stage_name, False):
             requested_stages.append(stage_name)
             active_flags.append(stage_name)
+
+    # If user asked to run simulation, always run verification too (unless verify stage doesn't exist).
+    # This keeps terminal stage status consistent with transcript contents (checker prints into transcript).
+    if 'sim' in requested_stages and 'verify' in stages_config and 'verify' not in requested_stages:
+        requested_stages.append('verify')
+        active_flags.append('verify')
     
     if not requested_stages:
         log("Error: No action specified.", Colors.YELLOW)

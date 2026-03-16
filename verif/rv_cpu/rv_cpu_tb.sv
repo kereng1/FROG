@@ -1,10 +1,15 @@
-//----------------------------------------------------------
-// Title      : rv_cpu_tb
-// Project    : RISC-V 5-Stage Pipeline
-//----------------------------------------------------------
+//-----------------------------------------------------------------------------
+// Title            : rv_cpu_tb
+// Project          : RISC-V 5-Stage Pipeline
+//-----------------------------------------------------------------------------
+// Description:
 // Testbench with Reference Model integration.
-// Compares RTL vs Reference Model on RF writes and DMEM writes.
-//----------------------------------------------------------
+// Based on FPGA-MAFIA rv32i_ref testbench style.
+// (1) Generate clock & reset
+// (2) Load memories via XMR (force/release)
+// (3) Compare RTL vs Reference Model
+// (4) End test on ebreak/ecall or timeout
+//-----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
 
@@ -17,21 +22,32 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     parameter CLK_PERIOD = 20;
     parameter IMEM_SIZE_WORDS = 256;
+    parameter IMEM_SIZE_BYTES = IMEM_SIZE_WORDS * 4;
     parameter DMEM_SIZE_BYTES = 1024;
-    parameter MAX_CYCLES = 500;
+    parameter DMEM_SIZE_WORDS = DMEM_SIZE_BYTES / 4;
+    parameter TIMEOUT_CYCLES = 10000;
 
     //----------------------------------------------------------
     // Signals
     //----------------------------------------------------------
     logic clk;
     logic rst;
+    logic run;
 
+    // Tracker file handles
     int log_if;
     int log_id;
     int log_exe;
     int log_mem;
     int log_wb;
     int cycle_count;
+
+    // Memory arrays for backdoor loading (match target memory indexing)
+    // RTL uses [N-1:0], REF uses [0:N-1]
+    logic [7:0]  RTL_IMem  [IMEM_SIZE_BYTES-1:0];
+    logic [7:0]  RTL_DMem  [DMEM_SIZE_BYTES-1:0];
+    logic [31:0] REF_IMem  [0:IMEM_SIZE_WORDS-1];
+    logic [31:0] REF_DMem  [0:DMEM_SIZE_WORDS-1];
 
     // Reference model signals
     t_rf_write_txn   ref_rf_write;
@@ -49,7 +65,7 @@ module rv_cpu_tb;
     int   dmem_error_count;
 
     //----------------------------------------------------------
-    // Instruction Decoder Function
+    // Instruction Decoder Function (for trackers)
     //----------------------------------------------------------
     function string decode_instr(input logic [31:0] instr);
         logic [6:0] opcode;
@@ -129,6 +145,28 @@ module rv_cpu_tb;
     endfunction
 
     //----------------------------------------------------------
+    // Clock Generation
+    //----------------------------------------------------------
+    initial begin: clock_gen
+        clk = 1'b0;
+        forever begin
+            #(CLK_PERIOD/2) clk = 1'b0;
+            #(CLK_PERIOD/2) clk = 1'b1;
+        end
+    end
+
+    //----------------------------------------------------------
+    // Reset Generation
+    //----------------------------------------------------------
+    initial begin: reset_gen
+        rst = 1'b1;
+        run = 1'b0;
+        #100;
+        rst = 1'b0;
+        run = 1'b1;
+    end
+
+    //----------------------------------------------------------
     // DUT - RTL CPU
     //----------------------------------------------------------
     rv_cpu dut (
@@ -170,6 +208,7 @@ module rv_cpu_tb;
         .rtl_rf_wr_en     (dut.wb_ctrl.reg_write_en_Q104H),
         .rtl_rf_rd        (dut.wb_ctrl.reg_dst_Q104H),
         .rtl_rf_wr_data   (dut.wb_data_Q104H),
+        .rtl_pc_Q102H     (dut.pc_Q102H),
         
         // RTL DMEM write signals (Q103H)
         .rtl_dmem_wr_en   (dut.core2dmem_req_Q103H.wr_en),
@@ -186,53 +225,102 @@ module rv_cpu_tb;
     );
 
     //----------------------------------------------------------
-    // Clock Generation
+    // Test Sequence - Load memories via XMR (force/release)
     //----------------------------------------------------------
-    initial begin
-        clk = 0;
-        forever #(CLK_PERIOD/2) clk = ~clk;
+    initial begin: test_seq
+        //======================================
+        // Load program to TB arrays
+        //======================================
+        // RTL uses byte-organized memory
+        $readmemh("output_tools/inst_mem.sv", RTL_IMem);
+        $readmemh("output_tools/data_mem.sv", RTL_DMem);
+        
+        // REF uses word-organized memory
+        $readmemh("output_tools/inst_mem_word.sv", REF_IMem);
+        $readmemh("output_tools/data_mem_word.sv", REF_DMem);
+        
+        //======================================
+        // Backdoor load via XMR (force/release)
+        //======================================
+        $display("TB: Loading memories via XMR...");
+        
+        // Force RTL instruction memory (byte-organized)
+        force dut.u_rv_mem_wrap.i_mem.mem = RTL_IMem;
+        
+        // Force REF instruction memory (word-organized)
+        force u_ref.imem = REF_IMem;
+        force u_ref.dmem = REF_DMem;
+        
+        #10;
+        
+        // Release after loading
+        release dut.u_rv_mem_wrap.i_mem.mem;
+        release u_ref.imem;
+        release u_ref.dmem;
+        
+        $display("TB: Memory loading complete");
+        
+        //======================================
+        // Timeout watchdog
+        //======================================
+        #(CLK_PERIOD * TIMEOUT_CYCLES);
+        $error("ERROR: TIMEOUT after %0d cycles", TIMEOUT_CYCLES);
+        eot("TIMEOUT");
     end
 
     //----------------------------------------------------------
-    // Reset and Run Control
+    // EOT (End of Test) Detection
     //----------------------------------------------------------
-    initial begin
-        rst = 1'b1;
-        run = 1'b0;
-        #100;
-        rst = 1'b0;
-        run = 1'b1;
-    end
-
-    //----------------------------------------------------------
-    // Load Program into RTL and Reference Model IMEM
-    //----------------------------------------------------------
-    initial begin
-        // Clear RTL instruction memory with NOPs
-        for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
-            dut.u_rv_mem_wrap.i_mem.mem[i] = 32'h00000013; // NOP
+    initial begin: check_eot
+        forever begin
+            @(posedge clk);
+            if (!rst && run) begin
+                if (u_ref.ebreak_called) eot("ebreak");
+                if (u_ref.ecall_called)  eot("ecall");
+            end
         end
-
-        // Clear Reference model instruction memory with NOPs
-        for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
-            u_ref.imem[i] = 32'h00000013; // NOP
-        end
-
-        // Load program into RTL
-        $display("TB: Loading program into RTL IMEM");
-        $readmemh("output_tools/load_mem.sv", dut.u_rv_mem_wrap.i_mem.mem);
-
-        // Load same program into Reference Model
-        $display("TB: Loading program into Reference Model IMEM");
-        $readmemh("output_tools/load_mem.sv", u_ref.imem);
     end
 
     //----------------------------------------------------------
-    // Trackers
+    // EOT Task - Print summary and finish
+    //----------------------------------------------------------
+    task eot(input string reason);
+        // Close tracker files
+        if (log_if != 0)  $fclose(log_if);
+        if (log_id != 0)  $fclose(log_id);
+        if (log_exe != 0) $fclose(log_exe);
+        if (log_mem != 0) $fclose(log_mem);
+        if (log_wb != 0)  $fclose(log_wb);
+        
+        // Print summary
+        $display("\n");
+        $display("========================================");
+        $display("        END OF TEST: %s", reason);
+        $display("========================================");
+        $display("  Total Cycles:      %0d", cycle_count);
+        $display("  RF Writes:         %0d", rf_write_count);
+        $display("  RF Errors:         %0d", rf_error_count);
+        $display("  DMEM Writes:       %0d", dmem_write_count);
+        $display("  DMEM Errors:       %0d", dmem_error_count);
+        $display("----------------------------------------");
+        
+        if (rf_error_count == 0 && dmem_error_count == 0) begin
+            $display("  STATUS: PASS");
+        end else begin
+            $display("  STATUS: FAIL");
+        end
+        $display("========================================\n");
+        
+        $finish;
+    endtask
+
+    //----------------------------------------------------------
+    // Trackers (keep existing)
     //----------------------------------------------------------
     `include "verif/rv_cpu/trks/trk_if.vh"
     `include "verif/rv_cpu/trks/trk_decode.vh"
     `include "verif/rv_cpu/trks/trk_exe.vh"
+    
     // Pipeline for Instruction Names to keep trackers synced
     string name_Q101H, name_Q102H, name_Q103H, name_Q104H;
 
@@ -243,25 +331,14 @@ module rv_cpu_tb;
             name_Q103H <= "NOP";
             name_Q104H <= "NOP";
         end else begin
-            name_Q101H <= inst_name; // inst_name is the current decode result
+            name_Q101H <= inst_name;
             name_Q102H <= name_Q101H;
             name_Q103H <= name_Q102H;
             name_Q104H <= name_Q103H;
         end
     end
+    
     `include "verif/rv_cpu/trks/trk_mem.vh"
     `include "verif/rv_cpu/trks/trk_wb.vh"
-    //----------------------------------------------------------
-    // End Simulation
-    //----------------------------------------------------------
-    initial begin
-        #2000;
-        if (log_if != 0) $fclose(log_if);
-        if (log_id != 0) $fclose(log_id);
-        if (log_exe != 0) $fclose(log_exe);
-        if (log_mem != 0) $fclose(log_mem);
-        if (log_wb != 0) $fclose(log_wb);
-        $finish;
-    end
 
 endmodule

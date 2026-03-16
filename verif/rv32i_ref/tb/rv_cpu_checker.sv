@@ -32,6 +32,8 @@ module rv_cpu_checker
     input logic        rtl_rf_wr_en,
     input logic [4:0]  rtl_rf_rd,
     input logic [31:0] rtl_rf_wr_data,
+    // Best-effort RTL PC context (not perfectly aligned to WB, but useful for debug)
+    input logic [31:0] rtl_pc_Q102H,
 
     // RTL signals - DMEM Write (Q103H)
     input logic        rtl_dmem_wr_en,
@@ -54,13 +56,15 @@ module rv_cpu_checker
     logic rf_warmup_done;
     logic dmem_warmup_done;
 
-    assign rf_warmup_done   = (warmup_counter >= RF_DELAY_CYCLES);
-    assign dmem_warmup_done = (warmup_counter >= DMEM_DELAY_CYCLES);
+    // Extra warmup avoids false mismatches during pipeline fill (REF txn delay chain not yet populated)
+    localparam int WARMUP_CYCLES = ((RF_DELAY_CYCLES > DMEM_DELAY_CYCLES) ? RF_DELAY_CYCLES : DMEM_DELAY_CYCLES) + 2;
+    assign rf_warmup_done   = (warmup_counter >= WARMUP_CYCLES);
+    assign dmem_warmup_done = (warmup_counter >= WARMUP_CYCLES);
 
     always_ff @(posedge clk) begin
         if (rst) begin
             warmup_counter <= 0;
-        end else if (run && warmup_counter < RF_DELAY_CYCLES) begin
+        end else if (run && warmup_counter < WARMUP_CYCLES) begin
             warmup_counter <= warmup_counter + 1;
         end
     end
@@ -114,20 +118,20 @@ module rv_cpu_checker
         rf_mismatch = 1'b0;
         
         if (rf_warmup_done && run && !rst) begin
-            if (delayed_rf_write.valid && rtl_rf_wr_en) begin
+            if ((delayed_rf_write.valid === 1'b1) && (rtl_rf_wr_en === 1'b1)) begin
                 // Both should write - compare data
-                if (delayed_rf_write.rd != rtl_rf_rd) begin
+                if (delayed_rf_write.rd !== rtl_rf_rd) begin
                     rf_mismatch = 1'b1;
-                end else if (delayed_rf_write.data != rtl_rf_wr_data) begin
+                end else if (delayed_rf_write.data !== rtl_rf_wr_data) begin
                     rf_mismatch = 1'b1;
                 end
-            end else if (delayed_rf_write.valid && !rtl_rf_wr_en) begin
+            end else if ((delayed_rf_write.valid === 1'b1) && (rtl_rf_wr_en === 1'b0)) begin
                 // Reference writes but RTL doesn't - mismatch
                 // Ignore x0 writes
                 if (delayed_rf_write.rd != 5'd0) begin
                     rf_mismatch = 1'b1;
                 end
-            end else if (!delayed_rf_write.valid && rtl_rf_wr_en) begin
+            end else if ((delayed_rf_write.valid === 1'b0) && (rtl_rf_wr_en === 1'b1)) begin
                 // RTL writes but reference doesn't - mismatch
                 // Ignore x0 writes
                 if (rtl_rf_rd != 5'd0) begin
@@ -167,6 +171,7 @@ module rv_cpu_checker
     //=======================================================
     // Error Reporting
     //=======================================================
+    int cycle_count;
     always_ff @(posedge clk) begin
         if (rst) begin
             rf_write_count   <= 0;
@@ -174,7 +179,9 @@ module rv_cpu_checker
             dmem_write_count <= 0;
             dmem_error_count <= 0;
             check_error      <= 1'b0;
+            cycle_count      <= 0;
         end else if (run) begin
+            cycle_count <= cycle_count + 1;
             // RF write tracking (only after warm-up)
             if (rf_warmup_done && rtl_rf_wr_en && rtl_rf_rd != 5'd0) begin
                 rf_write_count <= rf_write_count + 1;
@@ -183,12 +190,12 @@ module rv_cpu_checker
             if (rf_mismatch) begin
                 rf_error_count <= rf_error_count + 1;
                 check_error    <= 1'b1;
-                $display("ERROR [RF] @%0t: PC=0x%08h Instr=%s", 
-                    $time, delayed_rf_write.pc, delayed_rf_write.instr_type.name());
-                $display("  REF: x%0d = 0x%08h (%0d)", 
+                $display("ERROR [RF] @%0t (C=%0d):", $time, cycle_count);
+                $display("  REF: valid=%b pc=0x%08h instr=%s rd=x%0d data=0x%08h (%0d)",
+                    delayed_rf_write.valid, delayed_rf_write.pc, delayed_rf_write.instr_type.name(),
                     delayed_rf_write.rd, delayed_rf_write.data, $signed(delayed_rf_write.data));
-                $display("  RTL: x%0d = 0x%08h (%0d) (wr_en=%b)", 
-                    rtl_rf_rd, rtl_rf_wr_data, $signed(rtl_rf_wr_data), rtl_rf_wr_en);
+                $display("  RTL: valid=%b pc_Q102H=0x%08h rd=x%0d data=0x%08h (%0d)",
+                    rtl_rf_wr_en, rtl_pc_Q102H, rtl_rf_rd, rtl_rf_wr_data, $signed(rtl_rf_wr_data));
             end
 
             // DMEM write tracking (only after warm-up)

@@ -141,7 +141,7 @@ loop:
     bne   x20, x21, loop      # if x20 != x21 goto loop (loop until x20 == 5)
 
 # -----------------------------------------------------------------------------
-# End of Program - Infinite Loop
+# End of Program
 # -----------------------------------------------------------------------------
 end:
-    jal   x0, end             # Jump to self (infinite loop, x0 not modified)
+    ebreak                    # End simulation (triggers EOT in testbench)

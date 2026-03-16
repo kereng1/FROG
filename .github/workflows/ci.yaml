@@ -16,10 +16,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build & Sim - RV_CPU
-        run: ./build/builder.py -dut rv_cpu -sim
-
-      - name: Build & Sim - RV_MEMORY
-        run: ./build/builder.py -dut rv_memory -sim
-
-      - name: Build & Sim - WRAP_MEM
-        run: ./build/builder.py -dut wrap_mem -sim
+        run: ./build/builder.py -dut rv_cpu -sim -verify

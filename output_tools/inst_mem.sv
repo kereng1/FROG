@@ -1,7 +1,7 @@
-// Memory initialization for simulation (byte format, little-endian)
-// Generated from machine code
+// Memory initialization (byte format, little-endian)
+// For RTL byte-organized memory
 // Source: input.txt
-// Date: 2026-03-16 16:41:55
+// Date: 2026-03-16 16:59:35
 // Total instructions: 73 (292 bytes)
 
 93
@@ -292,7 +292,7 @@ E3
 1E
 5A
 FF
-6F
+73
 00
-00
+10
 00
