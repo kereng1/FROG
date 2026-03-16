@@ -6,6 +6,12 @@ work/
 # IDE
 .vscode/
 
+# Licenses
+*.dat
+
+# Simulation artifacts
+transcript
+vsim_stacktrace.vstf
 
 hila_work/
 

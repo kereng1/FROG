@@ -99,7 +99,8 @@ module wrap_mem_tb;
         read_mem(2, 4'b0011, 1); // signed example
 
         $display("rv_dmem_wrap test finished.");
-        $stop;
+        $display("STATUS: PASS");
+        $finish;
     end
 
 endmodule

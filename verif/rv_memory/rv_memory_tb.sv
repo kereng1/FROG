@@ -66,10 +66,18 @@ module rv_memory_tb;
     dmem_byte_en_Q103H = 4'b1111;
     dmem_is_signed_Q103H = 0;
 
-    // Load instruction memory via hierarchy: 
-    // rv_mem_wrap (dut) -> rv_mem (i_mem) -> array (mem)
+    // Load instruction memory via temp word array, then scatter into byte array
     $display("TB: Loading instruction memory into i_mem.mem array");
-    $readmemh("verif/rv_memory/inst_mem.hex", dut.i_mem.mem);
+    begin
+        logic [31:0] tmp_imem [0:IMEM_SIZE_WORDS-1];
+        $readmemh("verif/rv_memory/inst_mem.hex", tmp_imem);
+        for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
+            dut.i_mem.mem[i*4 + 0] = tmp_imem[i][7:0];
+            dut.i_mem.mem[i*4 + 1] = tmp_imem[i][15:8];
+            dut.i_mem.mem[i*4 + 2] = tmp_imem[i][23:16];
+            dut.i_mem.mem[i*4 + 3] = tmp_imem[i][31:24];
+        end
+    end
 
     #20;
     rst = 0;
@@ -108,10 +116,13 @@ module rv_memory_tb;
     @(posedge clk); 
     $display("T=%0t | D_MEM READ DATA = 0x%08h", $time, dmem_rd_data_Q104H);
 
-    if (dmem_rd_data_Q104H === 32'hDEADBEEF)
+    if (dmem_rd_data_Q104H === 32'hDEADBEEF) begin
         $display("TB: SUCCESS - Data matched!");
-    else
-        $display("TB: ERROR - Data mismatch!");
+        $display("STATUS: PASS");
+    end else begin
+        $display("TB: ERROR - Data mismatch! Got 0x%08h", dmem_rd_data_Q104H);
+        $display("STATUS: FAIL");
+    end
 
     #20;
     $finish;

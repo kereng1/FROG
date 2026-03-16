@@ -24,10 +24,10 @@ qa2. PC (EXE)   : Program Counter of the instruction currently in EXE stage (Q10
 -------------------------------------------------------------------------------------------
 */
 
-string alu_op_str;
-string fwd1_str, fwd2_str;
-string src1_str, src2_str;
-string inst_name_exe;  // Instruction name decoded from EXE stage control signals
+reg [4*8-1:0] alu_op_str;
+reg [3*8-1:0] fwd1_str, fwd2_str;
+reg [3*8-1:0] src1_str, src2_str;
+reg [7*8-1:0] inst_name_exe;
 
 initial begin
     log_exe = $fopen("target/rv_cpu/logs/trk/trk_exe.log", "w");
