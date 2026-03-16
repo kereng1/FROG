@@ -3,6 +3,9 @@ target/
 
 work/
 
+# IDE
+.vscode/
+
 
 hila_work/
 
