@@ -498,17 +498,15 @@ module rv32i_ref
     end
 
     //=======================================================
-    // Transaction Outputs (immediate, not delayed)
+    // Transaction Outputs (combinational from current state)
     //=======================================================
     always_comb begin
-        // RF Write Transaction
         rf_write_txn.valid      = reg_wr_en && (rd != 5'd0) && run && !rst;
         rf_write_txn.rd         = rd;
         rf_write_txn.data       = reg_wr_data;
         rf_write_txn.pc         = pc;
         rf_write_txn.instr_type = instr_type;
 
-        // DMEM Write Transaction
         dmem_write_txn.valid      = dmem_wr_en && run && !rst;
         dmem_write_txn.addr       = mem_wr_addr;
         dmem_write_txn.data       = data_rd2;
@@ -516,10 +514,9 @@ module rv32i_ref
         dmem_write_txn.pc         = pc;
         dmem_write_txn.instr_type = instr_type;
 
-        // DMEM Read Transaction
         dmem_read_txn.valid      = dmem_rd_en && run && !rst;
         dmem_read_txn.addr       = mem_rd_addr;
-        dmem_read_txn.data       = reg_wr_data; // The loaded data that goes to RF
+        dmem_read_txn.data       = reg_wr_data;
         dmem_read_txn.byte_en    = dmem_byte_en;
         dmem_read_txn.is_signed  = dmem_is_signed;
         dmem_read_txn.pc         = pc;

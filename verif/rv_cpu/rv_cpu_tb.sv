@@ -160,11 +160,12 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     initial begin: reset_gen
         rst = 1'b1;
-        run = 1'b0;
         #100;
         rst = 1'b0;
-        run = 1'b1;
     end
+
+    // REF runs with backpressure from RTL retirement.
+    assign run = !rst && dut.u_rv_ctrl.ctrl_Q104H.valid;
 
     //----------------------------------------------------------
     // DUT - RTL CPU
