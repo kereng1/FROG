@@ -82,7 +82,7 @@ At the end of a run, the script prints the path to the main log file.
 
 ---
 
-## 🤖 CI/Regression
+##  CI/Regression
 
 A local CI script is provided to run all tests defined in the GitHub Actions workflow (`.github/workflows/ci.yaml`).
 

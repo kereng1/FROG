@@ -76,6 +76,7 @@ stages:
     log_file: "{sim_transcript}"
     commands:
       - 'vsim -c -work "{work_dir}" -l "{sim_transcript}" -wlf "{wlf_file}" "{tb_name}" -do "run -all; quit -f"'
+      - 'grep -q "STATUS: PASS" "{sim_transcript}" || (echo "Simulation FAILED - see {sim_transcript}" && exit 1)'
 
   debug:
     description: "Open simulation GUI (interactive)"

@@ -2,45 +2,59 @@
 // Title      : rv_cpu_tb
 // Project    : RISC-V 5-Stage Pipeline
 //----------------------------------------------------------
-// Simple testbench with XMR IMEM loading and signal tracking
-// Note: rv_cpu now has internal memory (rv_mem_wrap)
+// Testbench with Reference Model integration.
+// Compares RTL vs Reference Model on RF writes and DMEM writes.
 //----------------------------------------------------------
 
 `timescale 1ns/1ps
 
 module rv_cpu_tb;
     import rv_pkg::*;
+    import rv32i_ref_pkg::*;
 
     //----------------------------------------------------------
     // Parameters
     //----------------------------------------------------------
     parameter CLK_PERIOD = 20;
-    parameter IMEM_SIZE_WORDS = 256;  // Size of instruction memory
-    parameter DMEM_SIZE_BYTES = 1024; // Size of data memory
+    parameter IMEM_SIZE_WORDS = 256;
+    parameter DMEM_SIZE_BYTES = 1024;
+    parameter MAX_CYCLES = 500;
 
     //----------------------------------------------------------
     // Signals
     //----------------------------------------------------------
     logic clk;
     logic rst;
+    logic run;
 
     int log_fd;
     int cycle_count;
 
+    // Reference model signals
+    t_rf_write_txn   ref_rf_write;
+    t_dmem_write_txn ref_dmem_write;
+    t_dmem_read_txn  ref_dmem_read;
+    logic [31:0]     ref_pc;
+    logic [31:0]     ref_instruction;
+    t_instr_type     ref_instr_type;
+
+    // Checker signals
+    logic check_error;
+    int   rf_write_count;
+    int   rf_error_count;
+    int   dmem_write_count;
+    int   dmem_error_count;
+
     //----------------------------------------------------------
-    // Instruction Decoder Function - returns mnemonic string
+    // Instruction Decoder Function
     //----------------------------------------------------------
     function string decode_instr(input logic [31:0] instr);
         logic [6:0] opcode;
         logic [2:0] funct3;
         logic [6:0] funct7;
-        logic [4:0] rd, rs1, rs2;
         
         opcode = instr[6:0];
-        rd     = instr[11:7];
         funct3 = instr[14:12];
-        rs1    = instr[19:15];
-        rs2    = instr[24:20];
         funct7 = instr[31:25];
         
         case (opcode)
@@ -112,7 +126,7 @@ module rv_cpu_tb;
     endfunction
 
     //----------------------------------------------------------
-    // DUT - rv_cpu now has internal memory
+    // DUT - RTL CPU
     //----------------------------------------------------------
     rv_cpu dut (
         .clk (clk),
@@ -120,36 +134,98 @@ module rv_cpu_tb;
     );
 
     //----------------------------------------------------------
-    // Clock + Reset
+    // Reference Model
+    //----------------------------------------------------------
+    rv32i_ref #(
+        .IMEM_SIZE_WORDS(IMEM_SIZE_WORDS),
+        .DMEM_SIZE_BYTES(DMEM_SIZE_BYTES)
+    ) u_ref (
+        .clk             (clk),
+        .rst             (rst),
+        .run             (run),
+        .rf_write_txn    (ref_rf_write),
+        .dmem_write_txn  (ref_dmem_write),
+        .dmem_read_txn   (ref_dmem_read),
+        .ref_pc          (ref_pc),
+        .ref_instruction (ref_instruction),
+        .ref_instr_type  (ref_instr_type)
+    );
+
+    //----------------------------------------------------------
+    // Checker - Compare RTL vs Reference
+    //----------------------------------------------------------
+    rv_cpu_checker u_checker (
+        .clk              (clk),
+        .rst              (rst),
+        .run              (run),
+        
+        // Reference model transactions
+        .ref_rf_write     (ref_rf_write),
+        .ref_dmem_write   (ref_dmem_write),
+        
+        // RTL RF write signals (Q104H)
+        .rtl_rf_wr_en     (dut.wb_ctrl.reg_write_en_Q104H),
+        .rtl_rf_rd        (dut.wb_ctrl.reg_dst_Q104H),
+        .rtl_rf_wr_data   (dut.wb_data_Q104H),
+        
+        // RTL DMEM write signals (Q103H)
+        .rtl_dmem_wr_en   (dut.core2dmem_req_Q103H.wr_en),
+        .rtl_dmem_addr    (dut.alu_out_Q103H),
+        .rtl_dmem_wr_data (dut.dmem_wr_data_Q103H),
+        .rtl_dmem_byte_en (dut.core2dmem_req_Q103H.byte_en),
+        
+        // Status outputs
+        .check_error      (check_error),
+        .rf_write_count   (rf_write_count),
+        .rf_error_count   (rf_error_count),
+        .dmem_write_count (dmem_write_count),
+        .dmem_error_count (dmem_error_count)
+    );
+
+    //----------------------------------------------------------
+    // Clock Generation
     //----------------------------------------------------------
     initial begin
         clk = 0;
         forever #(CLK_PERIOD/2) clk = ~clk;
     end
 
+    //----------------------------------------------------------
+    // Reset and Run Control
+    //----------------------------------------------------------
     initial begin
         rst = 1'b1;
-        #100; // 100ns delay
+        run = 1'b0;
+        #100;
         rst = 1'b0;
+        run = 1'b1;
     end
 
     //----------------------------------------------------------
-    // Load the program into instruction memory via XMR
-    // Path: dut -> u_rv_mem_wrap -> i_mem -> mem
+    // Load Program into RTL and Reference Model IMEM
     //----------------------------------------------------------
     initial begin
-        // 1. First, clear memory or fill with NOPs (optional but recommended)
+        // Clear RTL instruction memory with NOPs
         for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
             dut.u_rv_mem_wrap.i_mem.mem[i] = 32'h00000013; // NOP
         end
 
-        // 2. Load the program from the HEX file using XMR
-        $display("TB: Loading program from verif/rv_cpu/inst_mem.hex into IMEM");
-        $readmemh("verif/rv_cpu/inst_mem.hex", dut.u_rv_mem_wrap.i_mem.mem);
+        // Clear Reference model instruction memory with NOPs
+        for (int i = 0; i < IMEM_SIZE_WORDS; i++) begin
+            u_ref.imem[i] = 32'h00000013; // NOP
+        end
+
+        // Load program into RTL
+        $display("TB: Loading program into RTL IMEM");
+        $readmemh("output_tools/load_mem.sv", dut.u_rv_mem_wrap.i_mem.mem);
+
+        // Load same program into Reference Model
+        $display("TB: Loading program into Reference Model IMEM");
+        $readmemh("output_tools/load_mem.sv", u_ref.imem);
     end
 
     //----------------------------------------------------------
-    // Trackers (console + log file)
+    // Cycle Tracking and Logging
     //----------------------------------------------------------
     initial begin
         log_fd = $fopen("target/rv_cpu/logs/rv_cpu_trace.log", "w");
@@ -157,26 +233,25 @@ module rv_cpu_tb;
     end
 
     always @(posedge clk) begin
-        if (!rst) begin
+        if (!rst && run) begin
+            // Log to file
             $fdisplay(log_fd,
-                "T=%0t C=%0d | PC=0x%08h NextPC=0x%08h | Instr=0x%08h Opcode=0x%02h | rs1=x%0d rs2=x%0d rd=x%0d | Reg1=%0d Reg2=%0d | ALU_in1=%0d ALU_in2=%0d ALU_out=%0d | DMEM_addr=0x%08h wr_en=%b rd_en=%b wr_data=%0d | wb_data=%0d wb_rd=x%0d wb_we=%b | ready_if=%b ready_id=%b ready_ex=%b ready_ma=%b ready_wb=%b",
-                $time, cycle_count,
-                dut.pc_Q100H, dut.u_rv_if.next_pc_Q100H,
-                dut.instruction_Q101H, dut.instruction_Q101H[6:0],
-                dut.decode_ctrl.reg_src1_Q101H, dut.decode_ctrl.reg_src2_Q101H, dut.decode_ctrl.rd_Q101H,
-                dut.u_rv_decode.reg_rd_data1_Q101H, dut.u_rv_decode.reg_rd_data2_Q101H,
-                dut.u_rv_exe.alu_in1_Q102H, dut.u_rv_exe.alu_in2_Q102H, dut.alu_out_Q102H,
-                dut.core2dmem_req_Q103H.address, dut.core2dmem_req_Q103H.wr_en, dut.core2dmem_req_Q103H.rd_en, dut.core2dmem_req_Q103H.wr_data,
-                dut.wb_data_Q104H, dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
-                dut.if_ctrl.ready_Q100H, dut.decode_ctrl.ready_Q102H, dut.exe_ctrl.ready_Q102H,
-                dut.ma_ctrl.ready_Q103H, dut.wb_ctrl.ready_Q104H
+                "C=%0d | RTL_PC=0x%08h REF_PC=0x%08h | RTL_Instr=0x%08h | wb_rd=x%0d wb_data=0x%08h wb_we=%b | dmem_wr=%b dmem_addr=0x%08h",
+                cycle_count,
+                dut.pc_Q100H, ref_pc,
+                dut.instruction_Q101H,
+                dut.wb_ctrl.reg_dst_Q104H, dut.wb_data_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
+                dut.core2dmem_req_Q103H.wr_en, dut.alu_out_Q103H
             );
 
+            // Console output (condensed)
             $display(
-                "C=%3d | PC=0x%03h | %-6s | ALU_in1=%-11d ALU_in2=%-11d ALU_out=%-11d | wb_rd=x%-2d wb_we=%b",
-                cycle_count, dut.pc_Q100H[11:0], decode_instr(dut.instruction_Q101H),
-                $signed(dut.u_rv_exe.alu_in1_Q102H), $signed(dut.u_rv_exe.alu_in2_Q102H), $signed(dut.alu_out_Q102H),
-                dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H
+                "C=%3d | RTL_PC=0x%03h %-6s | REF_PC=0x%03h %-8s | wb_rd=x%-2d we=%b | err=%b",
+                cycle_count, 
+                dut.pc_Q100H[11:0], decode_instr(dut.instruction_Q101H),
+                ref_pc[11:0], ref_instr_type.name(),
+                dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
+                check_error
             );
 
             cycle_count++;
@@ -184,12 +259,34 @@ module rv_cpu_tb;
     end
 
     //----------------------------------------------------------
-    // End simulation
+    // End Simulation
     //----------------------------------------------------------
     initial begin
-        #2000;
+        #(CLK_PERIOD * MAX_CYCLES);
+        
+        $display("\n");
+        $display("========================================");
+        $display("        SIMULATION SUMMARY");
+        $display("========================================");
+        $display("  Total Cycles:      %0d", cycle_count);
+        $display("  RF Writes:         %0d", rf_write_count);
+        $display("  RF Errors:         %0d", rf_error_count);
+        $display("  DMEM Writes:       %0d", dmem_write_count);
+        $display("  DMEM Errors:       %0d", dmem_error_count);
+        $display("----------------------------------------");
+        
         $fclose(log_fd);
-        $finish;
+        
+        if (rf_error_count == 0 && dmem_error_count == 0) begin
+            $display("  STATUS: PASS - All checks passed!");
+            $display("========================================\n");
+            $finish;
+        end else begin
+            $display("  STATUS: FAIL - Errors detected!");
+            $display("========================================\n");
+            $fatal(1, "Verification failed: %0d RF errors, %0d DMEM errors", 
+                   rf_error_count, dmem_error_count);
+        end
     end
 
 endmodule

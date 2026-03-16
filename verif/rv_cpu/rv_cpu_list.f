@@ -1,7 +1,8 @@
-# File list for rv_cpu simulation
+# File list for rv_cpu simulation with Reference Model
 # Include directories
 +incdir+source/common
 +incdir+source/cpu
++incdir+verif/rv_cpu
 
 # Source files - compile in order (dependencies first)
 source/common/rv_pkg.sv
@@ -20,6 +21,11 @@ source/cpu/rv_cpu.sv
 source/common/rv_mem.sv
 source/cpu/rv_dmem_wrap.sv
 source/cpu/rv_mem_wrap.sv
+
+# Reference Model
+verif/rv_cpu/rv32i_ref_pkg.sv
+verif/rv_cpu/rv32i_ref.sv
+verif/rv_cpu/rv_cpu_checker.sv
 
 # Testbench
 verif/rv_cpu/rv_cpu_tb.sv

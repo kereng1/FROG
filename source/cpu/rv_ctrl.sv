@@ -48,9 +48,10 @@ module rv_ctrl
     // Branch/jump taken detection
     assign branch_taken_Q102H = (ctrl_Q102H.is_branch && branch_cond_met_Q102H) || ctrl_Q102H.is_jump;
     
-    // Flush signals (clear Q101H and Q102H when branch/jump taken)
+    // Flush signals (clear Q101H when branch/jump taken)
+    // NOTE: Never flush Q102H - branches don't write, jumps NEED to write PC+4
     assign flush_Q101H = branch_taken_Q102H;
-    assign flush_Q102H = branch_taken_Q102H;
+    assign flush_Q102H = 1'b0;
     
     // Stall signals (for load-use hazard)
     assign stall_Q100H = load_use_hazard;
