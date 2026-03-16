@@ -1,51 +1,89 @@
-# Memory Architecture
+# Memory Subsystem Documentation
+
+This document describes the memory subsystem used in the RV32 pipeline implementation.
+The design follows a clear separation between:
+- A **generic raw memory model**
+- A **data-memory wrapper with load/store semantics**
+- A **top-level memory wrapper instantiating instruction and data memories**
+
+---
 
 ## Overview
 
-The memory system is encapsulated within a top-level **`memory`** module. This module serves as a unified interface, managing both the **Instruction Memory (IMEM)** and **Data Memory (DMEM)** paths within the CPU pipeline.
+The memory subsystem is composed of three main modules:
 
-### Hierarchical Structure
-* **`memory` (Top-Level):** The main orchestrator that handles pipeline synchronization.
-    * **`i_mem` (Instruction Memory):** An instance of `d_mem` used for fetching instructions.
-    * **`wrap_mem` (Data Memory Wrapper):** A logic layer that handles alignment, masking, and sign extension for data accesses.
-        * **`d_mem` (Core Storage):** The actual synchronous 32-bit word-addressable memory array.
-
-
-
----
-
-## Component Details
-
-### 1. Unified Memory Controller (`memory.sv`)
-The top-level module coordinates the timing between different pipeline stages:
-- **IF Stage (Q100H -> Q101H):** Fetches instructions using the Program Counter (PC). It includes a reset mechanism that forces a `NOP` instruction (`0x00000013`) to ensure the pipeline starts safely.
-- **MEM Stage (Q103H -> Q104H):** Manages Data Memory access. It receives the ALU result as an address and passes the output to the Write-Back stage via a pipeline register.
-
-### 2. Memory Wrapper (`wrap_mem.sv`)
-The `wrap_mem` is the "intelligence" layer of the memory system. It interfaces directly with the CPU to handle byte-level granularity while maintaining compatibility with the word-aligned `d_mem`.
-
-**Detailed Logic & Responsibilities:**
-- **Address Translation:** Converts CPU byte-level addresses to word-aligned addresses for `d_mem` by stripping the 2 LSBs (`addr[31:2]`).
-- **Write Operation (Store):** - Calculates the proper **byte enable mask** based on the instruction type and address offset.
-    - **Shifts write data** to the correct byte lane (e.g., for `SB`, it moves the byte to the targeted position within the 32-bit word).
-- **Read Operation (Load):**
-    - Requests a full word from `d_mem`.
-    - **LSB Alignment:** Shifts the resulting word to bring the requested byte or halfword to the Least Significant Bit (LSB) position.
-    - **Sign Extension:** Based on the `is_signed` input from the CPU:
-        - **Signed (`is_signed=1`):** Performs sign-extension for `LB` and `LH` to maintain the correct value for 2's complement integers.
-        - **Unsigned (`is_signed=0`):** Performs zero-extension for `LBU` and `LHU`.
+rv_mem_wrap  
+├── i_mem        : rv_mem        (Instruction Memory)  
+└── u_dmem_wrap  : rv_dmem_wrap  
+------└── u_dmem   : rv_mem        (Data Memory)
 
 
 
-### 3. Core Memory (`d_mem.sv`)
-The underlying storage component:
-- **Word-Addressable:** Each entry is a 32-bit word.
-- **Byte Enable Mask:** A 4-bit `byte_en` signal allows the CPU to write only specific bytes within a word, essential for `SB` and `SH` instructions.
-- **Synchronous Logic:** Utilizes internal flip-flops (`DFF_MEM`) for stable, clock-aligned reads and writes.
+Both instruction memory and data memory are implemented using the same low-level
+memory module (`rv_mem`), while higher-level behavior is implemented using wrappers.
 
 ---
 
-## Supported RISC-V Memory Instructions
+## 1. `rv_mem` – Raw Memory Model
+
+### Description
+`rv_mem` is a **generic synchronous 32-bit memory array**.
+It represents the lowest-level memory primitive in the system.
+
+This module is **agnostic to instruction/data semantics**.
+
+### Key Characteristics
+- Word-addressed memory (`addr` is a word index)
+- Byte-enable support for partial writes
+- Synchronous write
+- **Synchronous read** (read data is registered)
+- Implemented using DFF macros (`DFF_MEM`, `DFF`)
+
+### Interface
+- `wr_en` controls write operation
+- `byte_en` selects which bytes within a word are updated
+- `rd_data` is returned one cycle later
+
+### Usage
+`rv_mem` module is used as the underlying memory primitive.
+It is instantiated:
+- Once as **instruction memory**
+- Once as **data memory (via a wrapper)**
+
+---
+
+## 2. `rv_dmem_wrap` – Data Memory Wrapper
+
+### Description
+`rv_dmem_wrap` implements **RISC-V load/store semantics** on top of `rv_mem`.
+
+It converts byte-addressed CPU requests into word-based memory accesses and
+handles all alignment and extension logic.
+
+### Pipeline Timing
+- **Q103H**: Memory request (address, write data, control)
+- **Q104H**: Read data returned
+
+### Responsibilities
+
+#### Address Handling
+- Converts byte address → word address
+- Extracts byte offset within word
+
+#### Write Path (Q103H)
+- Shifts `byte_en` according to byte offset
+- Aligns write data to correct byte lanes
+- Supports:
+  - SB (store byte)
+  - SH (store halfword)
+  - SW (store word)
+
+#### Read Path (Q104H)
+- Masks valid bytes
+- Aligns data to LSB
+- Performs sign or zero extension
+
+### Supported RISC-V Memory Instructions
 
 | Instruction | Access Size | Signed / Unsigned | Byte Enable | Pipeline Stage | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -58,20 +96,56 @@ The underlying storage component:
 | **SH** | Halfword | N/A | `0011`* | Q103H | Stores 2 bytes |
 | **SW** | Word | N/A | `1111` | Q103H | Stores 4 bytes |
 
-*\*Note: Byte enable masks and data positions are dynamically shifted by `wrap_mem` based on the address offset (`addr[1:0]`).*
+*\*Note: Byte enable masks and data positions are dynamically shifted by `rv_dmem_wrap` based on the address offset (`addr[1:0]`).*
+
+
+### Notes
+- Internally instantiates `rv_mem`
+- Assumes `rv_mem` provides registered read data
 
 ---
 
-## Testing & Simulation
+## 3. `rv_mem_wrap` – Top-Level Memory Wrapper
 
-We use a Python-based **Builder** tool to automate the design flow.
+### Description
+`rv_mem_wrap` is the **memory stage of the pipeline**.
+It instantiates both instruction memory and data memory.
 
-### 1. Instruction Initialization
-Instructions are loaded into the `i_mem` using a "Backdoor" mechanism via a hex file:
-`verif/memory/inst_mem.hex`
+### Instruction Memory (`i_mem`)
+- Implemented using `rv_mem`
+- Read-only
+- Always uses `byte_en = 4'b1111`
+- `wr_en = 0`
+- Addressed using `pc[31:2]`
+- Used for instruction fetch (IF → ID)
 
-### 2. Running the Simulation
-To compile and simulate the memory system from the project root:
+### Data Memory
+- Implemented using `rv_dmem_wrap`
+- Supports read/write
+- Controlled by pipeline signals
+- Used for load/store instructions (EXE → MEM → WB)
 
-```bash
- ./build/builder.py -dut memory -sim
+---
+
+## Design Rationale
+
+- **Single memory model (`rv_mem`)**  
+  Avoids duplication and keeps behavior consistent.
+
+- **Wrappers define semantics**  
+  Whether a memory is instruction or data is determined by the wrapper, not the memory itself.
+
+- **Clear hierarchy for verification**  
+  Enables clean XMR access in testbenches.
+
+---
+
+## Summary
+
+| Module        | Purpose                              |
+|--------------|--------------------------------------|
+| `rv_mem`     | Generic synchronous memory           |
+| `rv_dmem_wrap` | Data memory semantics (LSU logic)    |
+| `rv_mem_wrap` | Pipeline memory stage (IMEM + DMEM)  |
+
+This structure cleanly separates concerns and aligns with standard CPU microarchitecture practices.

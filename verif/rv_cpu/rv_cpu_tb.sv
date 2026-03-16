@@ -25,9 +25,12 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     logic clk;
     logic rst;
-    logic run;
 
-    int log_fd;
+    int log_if;
+    int log_id;
+    int log_exe;
+    int log_mem;
+    int log_wb;
     int cycle_count;
 
     // Reference model signals
@@ -225,68 +228,40 @@ module rv_cpu_tb;
     end
 
     //----------------------------------------------------------
-    // Cycle Tracking and Logging
+    // Trackers
     //----------------------------------------------------------
-    initial begin
-        log_fd = $fopen("target/rv_cpu/logs/rv_cpu_trace.log", "w");
-        cycle_count = 0;
-    end
+    `include "verif/rv_cpu/trks/trk_if.vh"
+    `include "verif/rv_cpu/trks/trk_decode.vh"
+    `include "verif/rv_cpu/trks/trk_exe.vh"
+    // Pipeline for Instruction Names to keep trackers synced
+    string name_Q101H, name_Q102H, name_Q103H, name_Q104H;
 
     always @(posedge clk) begin
-        if (!rst && run) begin
-            // Log to file
-            $fdisplay(log_fd,
-                "C=%0d | RTL_PC=0x%08h REF_PC=0x%08h | RTL_Instr=0x%08h | wb_rd=x%0d wb_data=0x%08h wb_we=%b | dmem_wr=%b dmem_addr=0x%08h",
-                cycle_count,
-                dut.pc_Q100H, ref_pc,
-                dut.instruction_Q101H,
-                dut.wb_ctrl.reg_dst_Q104H, dut.wb_data_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
-                dut.core2dmem_req_Q103H.wr_en, dut.alu_out_Q103H
-            );
-
-            // Console output (condensed)
-            $display(
-                "C=%3d | RTL_PC=0x%03h %-6s | REF_PC=0x%03h %-8s | wb_rd=x%-2d we=%b | err=%b",
-                cycle_count, 
-                dut.pc_Q100H[11:0], decode_instr(dut.instruction_Q101H),
-                ref_pc[11:0], ref_instr_type.name(),
-                dut.wb_ctrl.reg_dst_Q104H, dut.wb_ctrl.reg_write_en_Q104H,
-                check_error
-            );
-
-            cycle_count++;
+        if (rst) begin
+            name_Q101H <= "NOP";
+            name_Q102H <= "NOP";
+            name_Q103H <= "NOP";
+            name_Q104H <= "NOP";
+        end else begin
+            name_Q101H <= inst_name; // inst_name is the current decode result
+            name_Q102H <= name_Q101H;
+            name_Q103H <= name_Q102H;
+            name_Q104H <= name_Q103H;
         end
     end
-
+    `include "verif/rv_cpu/trks/trk_mem.vh"
+    `include "verif/rv_cpu/trks/trk_wb.vh"
     //----------------------------------------------------------
     // End Simulation
     //----------------------------------------------------------
     initial begin
-        #(CLK_PERIOD * MAX_CYCLES);
-        
-        $display("\n");
-        $display("========================================");
-        $display("        SIMULATION SUMMARY");
-        $display("========================================");
-        $display("  Total Cycles:      %0d", cycle_count);
-        $display("  RF Writes:         %0d", rf_write_count);
-        $display("  RF Errors:         %0d", rf_error_count);
-        $display("  DMEM Writes:       %0d", dmem_write_count);
-        $display("  DMEM Errors:       %0d", dmem_error_count);
-        $display("----------------------------------------");
-        
-        $fclose(log_fd);
-        
-        if (rf_error_count == 0 && dmem_error_count == 0) begin
-            $display("  STATUS: PASS - All checks passed!");
-            $display("========================================\n");
-            $finish;
-        end else begin
-            $display("  STATUS: FAIL - Errors detected!");
-            $display("========================================\n");
-            $fatal(1, "Verification failed: %0d RF errors, %0d DMEM errors", 
-                   rf_error_count, dmem_error_count);
-        end
+        #2000;
+        if (log_if != 0) $fclose(log_if);
+        if (log_id != 0) $fclose(log_id);
+        if (log_exe != 0) $fclose(log_exe);
+        if (log_mem != 0) $fclose(log_mem);
+        if (log_wb != 0) $fclose(log_wb);
+        $finish;
     end
 
 endmodule
