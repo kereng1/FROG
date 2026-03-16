@@ -8,12 +8,12 @@
 -------------------------------------------------------------------------------------------
 1. Time       : Simulation time. Correlates log with Waveform.
 2. Cycle      : Clock cycle count.
-3. PC (IF)    : Program Counter of instruction currently being FETCHED.
-4. Opcode     : Opcode of instruction in DECODE stage.
-5. Instr (ID) : Raw 32-bit instruction bits in Hex (Decode stage).
-6. Instr Name : Human-readable name of instruction in DECODE stage.
-7. Result (WB): Data value being written back to Register File (from 4 cycles ago).
-8. Status     : Indicates if a Register Write (RegWrite) occurs this cycle.
+3. PC (IF)    : Program Counter of instruction currently being FETCHED (Q100H stage).
+4. Opcode     : Opcode of instruction that will be in DECODE stage next cycle (Q101H).
+5. Instr (ID) : Raw 32-bit instruction bits in Hex (will be in DECODE stage next cycle, Q101H).
+6. Instr Name : Human-readable name of instruction (will be in DECODE stage next cycle, Q101H).
+7. Result (WB): Data value being written back to Register File (Q104H stage, from 4 cycles ago).
+8. Status     : Indicates if a Register Write (RegWrite) occurs this cycle (Q104H stage).
 -------------------------------------------------------------------------------------------
 */
 
@@ -56,7 +56,7 @@ always @(posedge clk) begin
             cycle_count,
             dut.pc_Q100H,
             opcode,             // Displayed as Binary (%7b)
-            dut.instruction_Q101H,
+            dut.instruction_Q101H,  // Instruction of the next cycle (Q101H = Decode stage)
             inst_name,
             dut.wb_data_Q104H,
             (dut.wb_ctrl.reg_write_en_Q104H ? "RegWrite" : "        ")

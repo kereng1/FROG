@@ -395,6 +395,22 @@ class RV32IAssembler:
                 imm = parse_immediate(operands[1], self.labels)
                 return encode_u_type(rd, imm, OPCODE_AUIPC)
             
+            # ECALL instruction (SYSTEM opcode, imm=0)
+            if mnemonic == 'ecall':
+                # ecall: 000000000000_00000_000_00000_1110011
+                return 0x00000073
+            
+            # EBREAK instruction (SYSTEM opcode, imm=1)
+            if mnemonic == 'ebreak':
+                # ebreak: 000000000001_00000_000_00000_1110011
+                return 0x00100073
+            
+            # FENCE instruction
+            if mnemonic == 'fence':
+                # fence: 0000_pred_succ_00000_000_00000_0001111
+                # Default fence: fence iorw, iorw -> 0x0ff0000f
+                return 0x0ff0000f
+            
             raise ValueError(f"Unknown instruction: {mnemonic}")
             
         except Exception as e:
