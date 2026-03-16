@@ -481,21 +481,9 @@ module rv32i_ref
     //=======================================================
     // Sequential State Update
     //=======================================================
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            pc <= 32'd0;
-            for (int i = 0; i < 32; i++) begin
-                regfile[i] <= 32'd0;
-            end
-            for (int i = 0; i < DMEM_SIZE_WORDS; i++) begin
-                dmem[i] <= 32'd0;
-            end
-        end else if (run) begin
-            pc      <= next_pc;
-            regfile <= next_regfile;
-            dmem    <= next_dmem;
-        end
-    end
+    `DFF_RST_EN(pc,      next_pc,      clk, run, rst, 32'd0)
+    `DFF_RST_EN(regfile,  next_regfile, clk, run, rst, '{default: 32'd0})
+    `DFF_RST_EN(dmem,     next_dmem,    clk, run, rst, '{default: 32'd0})
 
     //=======================================================
     // Transaction Outputs (combinational from current state)

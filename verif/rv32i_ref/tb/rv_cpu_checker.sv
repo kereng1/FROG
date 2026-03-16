@@ -35,7 +35,7 @@ module rv_cpu_checker
     output int         dmem_error_count
 );
 
-    // Free-running alignment DFF
+    // Free-running alignment DFFs
     t_rf_write_txn ref_rf_q;
     logic          run_q;
     `DFF(ref_rf_q, ref_rf_write, clk)
@@ -43,38 +43,54 @@ module rv_cpu_checker
 
     // Combinational mismatch detect
     logic rf_mismatch;
+    logic compare_en;
+    assign compare_en = run_q && run && !rst;
+
     always_comb begin
         rf_mismatch = 1'b0;
-        if (run_q && run && !rst) begin
+        if (compare_en) begin
             if      (ref_rf_q.valid && rtl_rf_wr_en)  rf_mismatch = (ref_rf_q.rd !== rtl_rf_rd) || (ref_rf_q.data !== rtl_rf_wr_data);
             else if (ref_rf_q.valid && !rtl_rf_wr_en) rf_mismatch = (ref_rf_q.rd != 5'd0);
             else if (!ref_rf_q.valid && rtl_rf_wr_en)  rf_mismatch = (rtl_rf_rd != 5'd0);
         end
     end
 
-    // Error counting and reporting
+    // Counter state and next-state
     int cycle_count;
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            rf_write_count   <= 0;
-            rf_error_count   <= 0;
-            dmem_write_count <= 0;
-            dmem_error_count <= 0;
-            check_error      <= 1'b0;
-            cycle_count      <= 0;
-        end else begin
-            cycle_count <= cycle_count + 1;
-            if (run_q && run) begin
-                if (rtl_rf_wr_en && rtl_rf_rd != 5'd0)
-                    rf_write_count <= rf_write_count + 1;
-                if (rf_mismatch) begin
-                    rf_error_count <= rf_error_count + 1;
-                    check_error    <= 1'b1;
-                    $display("ERROR [RF] @%0t (C=%0d) pc=0x%08h %s: REF x%0d=0x%08h  RTL x%0d=0x%08h",
-                        $time, cycle_count, ref_rf_q.pc, ref_rf_q.instr_type.name(),
-                        ref_rf_q.rd, ref_rf_q.data, rtl_rf_rd, rtl_rf_wr_data);
-                end
+    int next_rf_write_count;
+    int next_rf_error_count;
+    int next_cycle_count;
+    logic next_check_error;
+
+    always_comb begin
+        next_rf_write_count = rf_write_count;
+        next_rf_error_count = rf_error_count;
+        next_cycle_count    = cycle_count + 1;
+        next_check_error    = check_error;
+        if (compare_en) begin
+            if (rtl_rf_wr_en && rtl_rf_rd != 5'd0)
+                next_rf_write_count = rf_write_count + 1;
+            if (rf_mismatch)  begin
+                next_rf_error_count = rf_error_count + 1;
+                next_check_error    = 1'b1;
             end
+        end
+    end
+
+    // Registered counters
+    `DFF_RST_VAL(cycle_count,      next_cycle_count,    clk, rst, 0)
+    `DFF_RST_VAL(rf_write_count,   next_rf_write_count, clk, rst, 0)
+    `DFF_RST_VAL(rf_error_count,   next_rf_error_count, clk, rst, 0)
+    `DFF_RST_VAL(dmem_write_count, dmem_write_count,    clk, rst, 0)
+    `DFF_RST_VAL(dmem_error_count, dmem_error_count,    clk, rst, 0)
+    `DFF_RST_VAL(check_error,      next_check_error,    clk, rst, 1'b0)
+
+    // Error reporting (procedural — verification only)
+    always @(posedge clk) begin
+        if (!rst && compare_en && rf_mismatch) begin
+            $display("ERROR [RF] @%0t (C=%0d) pc=0x%08h %s: REF x%0d=0x%08h  RTL x%0d=0x%08h",
+                $time, cycle_count, ref_rf_q.pc, ref_rf_q.instr_type.name(),
+                ref_rf_q.rd, ref_rf_q.data, rtl_rf_rd, rtl_rf_wr_data);
         end
     end
 
