@@ -40,7 +40,14 @@ module rv_cpu_tb;
     int log_exe;
     int log_mem;
     int log_wb;
+    int log_ref_commit;
+    int log_rtl_commit;
     int cycle_count;
+
+    // Commit trackers: ebreak gate + RTL pipeline (pc/instr to Q104H)
+    logic ebreak_seen;
+    logic [31:0] rtl_pc_Q103H_tb, rtl_pc_Q104H_tb;
+    logic [31:0] rtl_instr_Q102H_tb, rtl_instr_Q103H_tb, rtl_instr_Q104H_tb;
 
     // Memory arrays for backdoor loading (match target memory indexing)
     // RTL uses [N-1:0], REF uses [0:N-1]
@@ -171,6 +178,12 @@ module rv_cpu_tb;
     // REF runs with backpressure from RTL retirement.
     assign run = !rst && dut.u_rv_ctrl.ctrl_Q104H.valid;
 
+    // Latch ebreak so commit trackers stop logging
+    always @(posedge clk) begin
+        if (rst) ebreak_seen <= 1'b0;
+        else     ebreak_seen <= ebreak_seen | u_ref.ebreak_called;
+    end
+
     //----------------------------------------------------------
     // DUT - RTL CPU
     //----------------------------------------------------------
@@ -290,11 +303,13 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     task eot(input string reason);
         // Close tracker files
-        if (log_if != 0)  $fclose(log_if);
-        if (log_id != 0)  $fclose(log_id);
-        if (log_exe != 0) $fclose(log_exe);
-        if (log_mem != 0) $fclose(log_mem);
-        if (log_wb != 0)  $fclose(log_wb);
+        if (log_if != 0)        $fclose(log_if);
+        if (log_id != 0)        $fclose(log_id);
+        if (log_exe != 0)       $fclose(log_exe);
+        if (log_mem != 0)       $fclose(log_mem);
+        if (log_wb != 0)        $fclose(log_wb);
+        if (log_ref_commit != 0) $fclose(log_ref_commit);
+        if (log_rtl_commit != 0)  $fclose(log_rtl_commit);
         
         // Trigger final array compare (REF vs RTL RF writes)
         do_final_compare = 1'b1;
@@ -347,5 +362,9 @@ module rv_cpu_tb;
     
     `include "verif/rv_cpu/trks/trk_mem.vh"
     `include "verif/rv_cpu/trks/trk_wb.vh"
+
+    // Commit trackers: same format for diff (ref_commit.log vs rtl_commit.log)
+    `include "verif/rv_cpu/trks/trk_ref_commit.vh"
+    `include "verif/rv_cpu/trks/trk_rtl_commit.vh"
 
 endmodule
