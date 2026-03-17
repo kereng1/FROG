@@ -48,6 +48,7 @@ stages:
     commands:
       - 'mkdir -p "{build_log_dir}"'
       - 'mkdir -p "{work_dir}"'
+      - 'mkdir -p "{logs_dir}/trk"'
 
   # --- User-facing stages (exposed as CLI flags) ---
 

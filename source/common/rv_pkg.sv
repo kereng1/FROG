@@ -176,6 +176,7 @@ package rv_pkg;
         logic [4:0]         rs1;
         logic [4:0]         rs2;
         logic               dmem_sign_ext;
+        logic               valid;
     } t_ctrl;
 
     // Write back control signals

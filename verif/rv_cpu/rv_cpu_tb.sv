@@ -67,7 +67,7 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     // Instruction Decoder Function (for trackers)
     //----------------------------------------------------------
-    function string decode_instr(input logic [31:0] instr);
+    function reg [7*8-1:0] decode_instr(input logic [31:0] instr);
         logic [6:0] opcode;
         logic [2:0] funct3;
         logic [6:0] funct7;
@@ -160,11 +160,12 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     initial begin: reset_gen
         rst = 1'b1;
-        run = 1'b0;
         #100;
         rst = 1'b0;
-        run = 1'b1;
     end
+
+    // REF runs with backpressure from RTL retirement.
+    assign run = !rst && dut.u_rv_ctrl.ctrl_Q104H.valid;
 
     //----------------------------------------------------------
     // DUT - RTL CPU
@@ -322,7 +323,7 @@ module rv_cpu_tb;
     `include "verif/rv_cpu/trks/trk_exe.vh"
     
     // Pipeline for Instruction Names to keep trackers synced
-    string name_Q101H, name_Q102H, name_Q103H, name_Q104H;
+    reg [7*8-1:0] name_Q101H, name_Q102H, name_Q103H, name_Q104H;
 
     always @(posedge clk) begin
         if (rst) begin

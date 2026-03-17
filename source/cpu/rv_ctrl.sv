@@ -48,8 +48,7 @@ module rv_ctrl
     // Branch/jump taken detection
     assign branch_taken_Q102H = (ctrl_Q102H.is_branch && branch_cond_met_Q102H) || ctrl_Q102H.is_jump;
     
-    // Flush signals (clear Q101H when branch/jump taken)
-    // NOTE: Never flush Q102H - branches don't write, jumps NEED to write PC+4
+    // Flush the instruction in Q101H (fetched speculatively before branch resolved)
     assign flush_Q101H = branch_taken_Q102H;
     assign flush_Q102H = 1'b0;
     
@@ -84,6 +83,7 @@ module rv_ctrl
         ctrl_Q101H.uses_rs1      = 1'b0;
         ctrl_Q101H.uses_rs2      = 1'b0;
         ctrl_Q101H.dmem_sign_ext = 1'b0;
+        ctrl_Q101H.valid         = 1'b1;
 
         unique case (opcodeQ101H)
             // =================================================================
@@ -329,21 +329,10 @@ module rv_ctrl
     // Pipe control registers (with stall support)
     // ---------------------------------------------------------------------
     // Q101H -> Q102H: stall holds value, otherwise update
-    always_ff @(posedge clk) begin
-        if (rst)
-            ctrl_Q102H <= '0;
-        else if (!load_use_hazard)
-            ctrl_Q102H <= ctrl_Q101H_eff;
-        // else: stall - keep current value
-    end
+    `DFF_RST_EN(ctrl_Q102H, ctrl_Q101H_eff, clk, !load_use_hazard, rst, '0)
     
     // Q102H -> Q103H: always update (with effective value for flush)
-    always_ff @(posedge clk) begin
-        if (rst)
-            ctrl_Q103H <= '0;
-        else
-            ctrl_Q103H <= ctrl_Q102H_eff;
-    end
+    `DFF_RST(ctrl_Q103H, ctrl_Q102H_eff, clk, rst)
     
     // Q103H -> Q104H: always update
     `DFF_RST(ctrl_Q104H, ctrl_Q103H, clk, rst)
