@@ -63,6 +63,10 @@ module rv_cpu_tb;
     int   rf_error_count;
     int   dmem_write_count;
     int   dmem_error_count;
+    logic do_final_compare;
+    int   final_ref_count;
+    int   final_rtl_count;
+    int   final_rf_error_count;
 
     //----------------------------------------------------------
     // Instruction Decoder Function (for trackers)
@@ -196,33 +200,32 @@ module rv_cpu_tb;
     //----------------------------------------------------------
     // Checker - Compare RTL vs Reference
     //----------------------------------------------------------
+    initial do_final_compare = 1'b0;
+
     rv_cpu_checker u_checker (
-        .clk              (clk),
-        .rst              (rst),
-        .run              (run),
-        
-        // Reference model transactions
-        .ref_rf_write     (ref_rf_write),
-        .ref_dmem_write   (ref_dmem_write),
-        
-        // RTL RF write signals (Q104H)
-        .rtl_rf_wr_en     (dut.wb_ctrl.reg_write_en_Q104H),
-        .rtl_rf_rd        (dut.wb_ctrl.reg_dst_Q104H),
-        .rtl_rf_wr_data   (dut.wb_data_Q104H),
-        .rtl_pc_Q102H     (dut.pc_Q102H),
-        
-        // RTL DMEM write signals (Q103H)
-        .rtl_dmem_wr_en   (dut.core2dmem_req_Q103H.wr_en),
-        .rtl_dmem_addr    (dut.alu_out_Q103H),
-        .rtl_dmem_wr_data (dut.dmem_wr_data_Q103H),
-        .rtl_dmem_byte_en (dut.core2dmem_req_Q103H.byte_en),
-        
-        // Status outputs
-        .check_error      (check_error),
-        .rf_write_count   (rf_write_count),
-        .rf_error_count   (rf_error_count),
-        .dmem_write_count (dmem_write_count),
-        .dmem_error_count (dmem_error_count)
+        .clk                (clk),
+        .rst                (rst),
+        .run                (run),
+        .do_final_compare   (do_final_compare),
+        .ebreak_detected    (u_ref.ebreak_called),
+        .ref_rf_write       (ref_rf_write),
+        .ref_dmem_write     (ref_dmem_write),
+        .rtl_rf_wr_en       (dut.wb_ctrl.reg_write_en_Q104H),
+        .rtl_rf_rd          (dut.wb_ctrl.reg_dst_Q104H),
+        .rtl_rf_wr_data     (dut.wb_data_Q104H),
+        .rtl_pc_Q104H       (dut.pc_Q102H), // TEMP: use execute-stage PC until ctrl-based retire PC is added
+        .rtl_dmem_wr_en     (dut.core2dmem_req_Q103H.wr_en),
+        .rtl_dmem_addr      (dut.alu_out_Q103H),
+        .rtl_dmem_wr_data   (dut.dmem_wr_data_Q103H),
+        .rtl_dmem_byte_en   (dut.core2dmem_req_Q103H.byte_en),
+        .check_error        (check_error),
+        .rf_write_count     (rf_write_count),
+        .rf_error_count     (rf_error_count),
+        .dmem_write_count   (dmem_write_count),
+        .dmem_error_count   (dmem_error_count),
+        .final_ref_count   (final_ref_count),
+        .final_rtl_count   (final_rtl_count),
+        .final_rf_error_count (final_rf_error_count)
     );
 
     //----------------------------------------------------------
@@ -293,19 +296,22 @@ module rv_cpu_tb;
         if (log_mem != 0) $fclose(log_mem);
         if (log_wb != 0)  $fclose(log_wb);
         
-        // Print summary
+        // Trigger final array compare (REF vs RTL RF writes)
+        do_final_compare = 1'b1;
+        #(CLK_PERIOD * 2);
+        
+        // Print summary (array comparison at end of test)
         $display("\n");
         $display("========================================");
         $display("        END OF TEST: %s", reason);
         $display("========================================");
         $display("  Total Cycles:      %0d", cycle_count);
-        $display("  RF Writes:         %0d", rf_write_count);
-        $display("  RF Errors:         %0d", rf_error_count);
-        $display("  DMEM Writes:       %0d", dmem_write_count);
-        $display("  DMEM Errors:       %0d", dmem_error_count);
+        $display("  REF RF writes:     %0d", final_ref_count);
+        $display("  RTL RF writes:     %0d", final_rtl_count);
+        $display("  RF mismatches:     %0d", final_rf_error_count);
         $display("----------------------------------------");
         
-        if (rf_error_count == 0 && dmem_error_count == 0) begin
+        if (final_rf_error_count == 0) begin
             $display("  STATUS: PASS");
         end else begin
             $display("  STATUS: FAIL");

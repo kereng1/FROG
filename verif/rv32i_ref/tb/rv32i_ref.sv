@@ -489,7 +489,7 @@ module rv32i_ref
     // Transaction Outputs (combinational from current state)
     //=======================================================
     always_comb begin
-        rf_write_txn.valid      = reg_wr_en && (rd != 5'd0) && run && !rst;
+        rf_write_txn.valid      = reg_wr_en && run && !rst;  // include x0 writes (retired, no RF effect)
         rf_write_txn.rd         = rd;
         rf_write_txn.data       = reg_wr_data;
         rf_write_txn.pc         = pc;
